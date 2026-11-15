@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Control Panel</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --line: #dfe2e7; --text: #1d2129; --muted: #667085;
+    --accent: #2f6fde; --accent-text: #ffffff; --danger: #c93a3a; --ok: #1f8f55; --chip: #eef1f6;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --panel: #1c1f25; --line: #2c3038; --text: #e6e8ec; --muted: #9aa1ad;
+      --accent: #5b8ff0; --accent-text: #0d1117; --danger: #ef6b6b; --ok: #4cc38a; --chip: #262a32;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .stats { display: flex; gap: 18px; color: var(--muted); font-size: 13px; flex-wrap: wrap; }
+  header .stats b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  header .links { margin-left: auto; display: flex; gap: 12px; font-size: 13px; }
+  a { color: var(--accent); }
+  .layout { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 53px); }
+  aside { border-right: 1px solid var(--line); background: var(--panel); padding: 12px; }
+  aside h2, section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 4px 0 10px; font-weight: 600; }
+  .player { display: block; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid transparent; border-radius: 8px; background: none; color: inherit; cursor: pointer; font: inherit; }
+  .player:hover { background: var(--chip); }
+  .player.selected { border-color: var(--accent); background: var(--chip); }
+  .player small { display: block; color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  .empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
+  main { padding: 16px 20px 40px; min-width: 0; }
+  nav.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; flex-wrap: wrap; }
+  nav.tabs button { border: none; background: none; color: var(--muted); padding: 8px 12px; cursor: pointer; font: inherit; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  section { display: none; }
+  section.active { display: block; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  button.btn { border: 1px solid var(--line); background: var(--chip); color: var(--text); padding: 7px 12px; border-radius: 7px; cursor: pointer; font: inherit; }
+  button.btn:hover { border-color: var(--accent); }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button.btn.danger { color: var(--danger); }
+  button.btn:disabled { opacity: .5; cursor: default; }
+  input, select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; font: inherit; min-width: 0; }
+  input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input.num { width: 90px; font-variant-numeric: tabular-nums; }
+  input.grow { flex: 1; min-width: 160px; }
+  .skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 6px; }
+  .skill { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; }
+  .skill span { font-size: 13px; }
+  .skill input { width: 62px; padding: 4px 6px; text-align: right; }
+  .kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+  .kv div { font-size: 12px; color: var(--muted); }
+  .kv b { display: block; font-size: 16px; color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  td.id { font-family: var(--mono); color: var(--muted); width: 70px; }
+  .scroll { max-height: 420px; overflow: auto; }
+  pre.out { font-family: var(--mono); font-size: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 10px; margin: 0; max-height: 360px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+  pre.logs { max-height: 560px; }
+  .lvl-warn { color: #c58a00; } .lvl-error { color: var(--danger); }
+  .muted { color: var(--muted); font-size: 13px; }
+  #toast { position: fixed; right: 16px; bottom: 16px; max-width: min(520px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--ok); border-radius: 8px; padding: 10px 14px; box-shadow: 0 6px 24px rgba(0,0,0,.2); display: none; white-space: pre-wrap; font-size: 13px; }
+  #toast.error { border-left-color: var(--danger); }
+  @media (max-width: 760px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { border-right: none; border-bottom: 1px solid var(--line); }
+    header .links { margin-left: 0; }
+    main { padding: 14px 16px 40px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Test Control Panel</h1>
+  <div class="stats" id="stats"></div>
+  <div class="links" id="links"></div>
+</header>
+<div class="layout">
+  <aside>
+    <h2>Online players</h2>
+    <div id="players"><div class="empty">Loading…</div></div>
+  </aside>
+  <main>
+    <nav class="tabs" id="tabs">
+      <button data-tab="player" class="active">Player</button>
+      <button data-tab="teleport">Teleport</button>
+      <button data-tab="items">Items</button>
+      <button data-tab="npcs">NPCs</button>
+      <button data-tab="console">Console</button>
+      <button data-tab="server">Server</button>
+    </nav>
+
+    <section id="tab-player" class="active">
+      <div class="card">
+        <h2>Selected player</h2>
+        <div id="player-summary" class="muted">Select an online player on the left. Log in at the client first.</div>
+      </div>
+      <div class="card">
+        <h2>Quick actions</h2>
+        <div class="grid" id="quick"></div>
+      </div>
+      <div class="card">
+        <h2>Skills</h2>
+        <div class="row" style="margin-bottom:10px">
+          <span class="muted">Change a level and press Enter or leave the field. Applies to level and experience.</span>
+        </div>
+        <div class="skills" id="skills"></div>
+      </div>
+    </section>
+
+    <section id="tab-teleport">
+      <div class="card">
+        <h2>Coordinates</h2>
+        <div class="row">
+          <input class="num" id="tx" placeholder="x" inputmode="numeric">
+          <input class="num" id="ty" placeholder="y" inputmode="numeric">
+          <input class="num" id="tz" placeholder="z" value="0" inputmode="numeric">
+          <button class="btn primary" id="tele-go">Teleport</button>
+          <button class="btn" id="tele-here">Use current position</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Locations</h2>
+        <div class="grid" id="presets"></div>
+      </div>
+      <div class="card">
+        <h2>Saved spots</h2>
+        <div class="row" style="margin-bottom:10px">
+          <input class="grow" id="spot-name" placeholder="Name for the selected player's current position">
+          <button class="btn" id="spot-save">Save spot</button>
+        </div>
+        <div class="grid" id="spots"></div>
+        <div class="muted" id="spots-empty">Saved in this browser only.</div>
+      </div>
+    </section>
+
+    <section id="tab-items">
+      <div class="card">
+        <h2>Spawn items</h2>
+        <div class="row" style="margin-bottom:10px">
+          <input class="grow" id="item-q" placeholder="Search by name or id (e.g. whip, 4151)">
+          <input class="num" id="item-amount" value="1" inputmode="numeric" aria-label="Amount">
+        </div>
+        <div class="scroll"><table><thead><tr><th>Id</th><th>Name</th><th></th></tr></thead><tbody id="item-results"></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="tab-npcs">
+      <div class="card">
+        <h2>Spawn NPCs</h2>
+        <div class="row" style="margin-bottom:10px">
+          <input class="grow" id="npc-q" placeholder="Search by name or id (e.g. goblin, vorkath)">
+          <input class="num" id="npc-amount" value="1" inputmode="numeric" aria-label="Amount">
+        </div>
+        <p class="muted" style="margin:0 0 8px">NPCs spawn around the selected player. Bosses with their own instance commands are in the Console list.</p>
+        <div class="scroll"><table><thead><tr><th>Id</th><th>Name</th><th>Combat</th><th></th></tr></thead><tbody id="npc-results"></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="tab-console">
+      <div class="card">
+        <h2>Run a command as the selected player</h2>
+        <div class="row" style="margin-bottom:10px">
+          <input class="grow" id="cmd" placeholder="e.g. master, tele 3222 3218, item 4151, npc 2042" list="cmd-list" autocomplete="off">
+          <button class="btn primary" id="cmd-run">Run</button>
+        </div>
+        <datalist id="cmd-list"></datalist>
+        <pre class="out" id="cmd-out">Output appears here. Commands run with Developer rights for the one call; the player's own rank is kept.</pre>
+      </div>
+      <div class="card">
+        <h2>All commands</h2>
+        <input class="grow" id="cmd-filter" placeholder="Filter" style="width:100%;margin-bottom:8px">
+        <div class="scroll"><table><tbody id="cmd-table"></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="tab-server">
+      <div class="card">
+        <h2>Server</h2>
+        <div class="kv" id="server-kv"></div>
+      </div>
+      <div class="card">
+        <h2>Broadcast</h2>
+        <div class="row">
+          <input class="grow" id="broadcast" maxlength="200" placeholder="Message to every online player">
+          <button class="btn primary" id="broadcast-send">Send</button>
+          <button class="btn" id="save-all">Save all players</button>
+        </div>
+        <p class="muted" style="margin:10px 0 0">Restart, world settings, plugins and ranks are on the <span id="admin-link">world config page</span>.</p>
+      </div>
+      <div class="card">
+        <div class="row" style="justify-content:space-between;margin-bottom:8px">
+          <h2 style="margin:0">Logs</h2>
+          <div class="row">
+            <input id="log-filter" placeholder="Filter">
+            <label class="muted"><input type="checkbox" id="log-follow" checked> Follow</label>
+            <button class="btn" id="log-clear">Clear view</button>
+          </div>
+        </div>
+        <pre class="out logs" id="logs"></pre>
+      </div>
+    </section>
+  </main>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, props = {}, children = []) => {
+    const node = Object.assign(document.createElement(tag), props);
+    for (const child of [].concat(children)) node.append(child);
+    return node;
+  };
+
+  const PRESETS = [
+    ["Lumbridge", 3222, 3218], ["Varrock", 3213, 3424], ["Grand Exchange", 3164, 3487],
+    ["Edgeville", 3087, 3496], ["Falador", 2964, 3378], ["Draynor Village", 3093, 3244],
+    ["Al Kharid", 3293, 3174], ["Camelot", 2757, 3477], ["Catherby", 2808, 3436],
+    ["Seers' Village", 2726, 3485], ["Ardougne", 2662, 3305], ["Yanille", 2606, 3093],
+    ["Canifis", 3493, 3488], ["Port Sarim", 3023, 3208], ["Rimmington", 2957, 3214],
+    ["Burthorpe", 2898, 3544], ["Taverley", 2895, 3443], ["Shilo Village", 2852, 2955],
+    ["Wilderness ditch", 3087, 3523], ["Mage Bank", 2538, 4716], ["Duel Arena / PvP Arena", 3365, 3266],
+    ["Barrows", 3565, 3289], ["Castle Wars", 2442, 3090],
+  ];
+  const QUICK = [
+    ["Max stats", "master"], ["Open bank", "bank"], ["Rune set", "runes"],
+    ["Spec 100%", "spec 100"], ["Infinite HP", "infhp"], ["Infinite run", "infrun"],
+    ["Mortal (take damage)", "mortal"], ["Noclip", "noclip"], ["Up a floor", "up"],
+    ["Down a floor", "down"], ["Show coords", "coords"], ["Save", "save"],
+    ["Clear inventory", "clearinv", true], ["Reset stats", "reset", true],
+  ];
+
+  let state = null;
+  let selected = null;
+  let detail = null;
+  let logAfter = 0;
+  let commands = [];
+
+  function toast(message, isError = false) {
+    const t = $("toast");
+    t.textContent = message;
+    t.className = isError ? "error" : "";
+    t.style.display = "block";
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => (t.style.display = "none"), isError ? 7000 : 3500);
+  }
+
+  async function api(path, body) {
+    const options = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+    const response = await fetch(path, options);
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401) throw new Error("Not signed in: open the link from the server log (…/?token=…).");
+    if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    return data;
+  }
+
+  function requirePlayer() {
+    if (!selected) { toast("Select an online player first.", true); return false; }
+    return true;
+  }
+
+  async function run(text, { quiet = false } = {}) {
+    if (!requirePlayer()) return null;
+    try {
+      const result = await api("/api/command", { player: selected, text });
+      const lines = result.messages.length ? result.messages.join("\n") : "(no chat output)";
+      $("cmd-out").textContent = `> ::${text}\n${lines}`;
+      if (result.player) { detail = result.player; renderDetail(); }
+      if (!quiet) toast(`::${text}\n${lines}`, !result.handled);
+      return result;
+    } catch (error) {
+      toast(error.message, true);
+      return null;
+    }
+  }
+
+  // ---- Header / players ----
+  function formatUptime(s) {
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return h ? `${h}h ${m}m` : `${m}m ${s % 60}s`;
+  }
+
+  function renderState() {
+    const perf = state.perf || {};
+    $("stats").replaceChildren(
+      ...[["Players", state.players.length], ["Bots", state.botCount], ["NPCs", state.npcCount],
+          ["Tick", perf.ticks ? `${perf.avgTickMs.toFixed(1)} ms` : "–"], ["Heap", `${state.memory.heapUsedMb} MB`],
+          ["Up", formatUptime(state.uptimeSeconds)]]
+        .map(([k, v]) => el("span", {}, [`${k} `, el("b", { textContent: String(v) })]))
+    );
+    const links = [];
+    if (state.clientPort) links.push(el("a", { href: `http://localhost:${state.clientPort}/`, target: "_blank", textContent: "Game client" }));
+    if (state.worldAdminPort) {
+      const href = `http://localhost:${state.worldAdminPort}/`;
+      links.push(el("a", { href, target: "_blank", textContent: "World config" }));
+      $("admin-link").replaceChildren(el("a", { href, target: "_blank", textContent: "world config page" }));
+    }
+    $("links").replaceChildren(...links);
+
+    const list = $("players");
+    if (!state.players.length) {
+      list.replaceChildren(el("div", { className: "empty", textContent: "Nobody is online. Log in at the game client." }));
+    } else {
+      list.replaceChildren(...state.players.map((p) => {
+        const button = el("button", { className: "player" + (p.username === selected ? " selected" : "") }, [
+          `${p.username} `, el("small", { textContent: `${p.rightsName} · cb ${p.combat} · ${p.x}, ${p.y}, ${p.z}` }),
+        ]);
+        button.onclick = () => select(p.username);
+        return button;
+      }));
+    }
+    if (!selected && state.players.length) select(state.players[0].username);
+    if (selected && !state.players.some((p) => p.username === selected)) { selected = null; detail = null; renderDetail(); }
+
+    const kv = [
+      ["Uptime", formatUptime(state.uptimeSeconds)], ["Profile", state.profile || "main"],
+      ["Avg tick", perf.ticks ? `${perf.avgTickMs.toFixed(2)} ms` : "–"], ["Max tick", perf.ticks ? `${perf.maxTickMs.toFixed(1)} ms` : "–"],
+      ["Avg drift", perf.ticks ? `${perf.avgDriftMs.toFixed(1)} ms` : "–"], ["RSS", `${state.memory.rssMb} MB`],
+      ["Heap used", `${state.memory.heapUsedMb} MB`], ["Shutting down", state.shuttingDown ? "yes" : "no"],
+    ];
+    $("server-kv").replaceChildren(...kv.map(([k, v]) => el("div", {}, [k, el("b", { textContent: v })])));
+  }
+
+  async function refreshState() {
+    try {
+      state = await api("/api/state");
+      renderState();
+      if (selected && document.visibilityState === "visible" && !document.activeElement?.closest?.(".skill")) await loadDetail();
+    } catch (error) {
+      $("players").replaceChildren(el("div", { className: "empty", textContent: error.message }));
+    }
+  }
+
+  async function select(name) {
+    selected = name;
+    renderState();
+    await loadDetail();
+  }
+
+  async function loadDetail() {
+    if (!selected) return;
+    try {
+      detail = await api(`/api/player?name=${encodeURIComponent(selected)}`);
+      renderDetail();
+    } catch (error) { /* logged out between polls */ }
+  }
+
+  function renderDetail() {
+    const summary = $("player-summary");
+    if (!detail) {
+      summary.className = "muted";
+      summary.textContent = "Select an online player on the left. Log in at the client first.";
+      $("skills").replaceChildren();
+      return;
+    }
+    summary.className = "kv";
+    summary.replaceChildren(...[
+      ["Name", detail.username], ["Rank", detail.rightsName], ["Position", `${detail.x}, ${detail.y}, ${detail.z}`],
+      ["Hitpoints", detail.hitpoints], ["Run energy", `${detail.runEnergy}%`], ["Combat", detail.combat], ["Total", detail.total],
+    ].map(([k, v]) => el("div", {}, [k, el("b", { textContent: String(v) })])));
+
+    const skills = $("skills");
+    if (document.activeElement?.closest?.(".skill")) return;
+    skills.replaceChildren(...detail.skills.map((s) => {
+      const input = el("input", { type: "number", min: s.name === "Hitpoints" ? 10 : 1, max: 99, value: s.maxLevel, title: `${s.experience.toLocaleString()} xp; currently ${s.level}` });
+      const apply = () => {
+        const level = Number(input.value);
+        if (!Number.isInteger(level) || level === s.maxLevel) return;
+        run(`setlevel ${s.name.toLowerCase()} ${level}`);
+      };
+      input.addEventListener("change", apply);
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
+      return el("label", { className: "skill" }, [el("span", { textContent: s.level !== s.maxLevel ? `${s.name} (${s.level})` : s.name }), input]);
+    }));
+  }
+
+  // ---- Quick actions ----
+  $("quick").replaceChildren(...QUICK.map(([label, cmd, confirmIt]) => {
+    const b = el("button", { className: "btn" + (confirmIt ? " danger" : ""), textContent: label, title: `::${cmd}` });
+    b.onclick = () => { if (!confirmIt || confirm(`Run ::${cmd} on ${selected}?`)) run(cmd); };
+    return b;
+  }));
+
+  // ---- Teleport ----
+  function teleport(x, y, z = 0) { return run(`tele ${x} ${y} ${z}`); }
+  $("presets").replaceChildren(...PRESETS.map(([name, x, y, z = 0]) => {
+    const b = el("button", { className: "btn", textContent: name, title: `${x}, ${y}, ${z}` });
+    b.onclick = () => teleport(x, y, z);
+    return b;
+  }));
+  $("tele-go").onclick = () => {
+    const [x, y, z] = ["tx", "ty", "tz"].map((id) => Number($(id).value || 0));
+    if (![x, y, z].every(Number.isInteger) || !$("tx").value || !$("ty").value) return toast("Enter whole-number x and y.", true);
+    teleport(x, y, z);
+  };
+  $("tele-here").onclick = () => {
+    if (!detail) return requirePlayer();
+    $("tx").value = detail.x; $("ty").value = detail.y; $("tz").value = detail.z;
+  };
+
+  const SPOTS_KEY = "test-panel:spots";
+  function loadSpots() { try { return JSON.parse(localStorage.getItem(SPOTS_KEY)) || []; } catch { return []; } }
+  function saveSpots(spots) { try { localStorage.setItem(SPOTS_KEY, JSON.stringify(spots)); } catch {} }
+  function renderSpots() {
+    const spots = loadSpots();
+    $("spots-empty").style.display = spots.length ? "none" : "block";
+    $("spots").replaceChildren(...spots.map((spot, i) => {
+      const go = el("button", { className: "btn", textContent: spot.name, title: `${spot.x}, ${spot.y}, ${spot.z} (right-click to remove)` });
+      go.onclick = () => teleport(spot.x, spot.y, spot.z);
+      go.oncontextmenu = (e) => { e.preventDefault(); if (confirm(`Remove "${spot.name}"?`)) { spots.splice(i, 1); saveSpots(spots); renderSpots(); } };
+      return go;
+    }));
+  }
+  $("spot-save").onclick = () => {
+    if (!detail) return requirePlayer();
+    const name = $("spot-name").value.trim() || `${detail.x}, ${detail.y}, ${detail.z}`;
+    const spots = loadSpots();
+    spots.push({ name, x: detail.x, y: detail.y, z: detail.z });
+    saveSpots(spots);
+    $("spot-name").value = "";
+    renderSpots();
+  };
+  renderSpots();
+
+  // ---- Item / NPC search ----
+  function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+  function amountOf(id) { const n = Number($(id).value); return Number.isInteger(n) && n > 0 ? n : 1; }
+
+  const searchItems = debounce(async () => {
+    const q = $("item-q").value.trim();
+    if (!q) return $("item-results").replaceChildren();
+    try {
+      const { results } = await api(`/api/items?q=${encodeURIComponent(q)}`);
+      $("item-results").replaceChildren(...results.map((item) => {
+        const give = el("button", { className: "btn", textContent: "Give" });
+        give.onclick = () => run(`item ${item.id} ${amountOf("item-amount")}`);
+        const tags = [item.noted && "noted", item.stackable && "stackable"].filter(Boolean).join(", ");
+        return el("tr", {}, [el("td", { className: "id", textContent: item.id }), el("td", {}, [item.name, tags ? el("span", { className: "muted", textContent: `  ${tags}` }) : ""]), el("td", {}, give)]);
+      }));
+    } catch (error) { toast(error.message, true); }
+  }, 200);
+  $("item-q").addEventListener("input", searchItems);
+
+  const searchNpcs = debounce(async () => {
+    const q = $("npc-q").value.trim();
+    if (!q) return $("npc-results").replaceChildren();
+    try {
+      const { results } = await api(`/api/npcs?q=${encodeURIComponent(q)}`);
+      $("npc-results").replaceChildren(...results.map((npc) => {
+        const spawn = el("button", { className: "btn", textContent: "Spawn" });
+        spawn.onclick = () => run(`npc ${npc.id} ${amountOf("npc-amount")}`);
+        return el("tr", {}, [el("td", { className: "id", textContent: npc.id }), el("td", { textContent: npc.name }), el("td", { textContent: npc.combat || "" }), el("td", {}, spawn)]);
+      }));
+    } catch (error) { toast(error.message, true); }
+  }, 200);
+  $("npc-q").addEventListener("input", searchNpcs);
+
+  // ---- Console ----
+  const history = [];
+  let historyIndex = -1;
+  async function runConsole() {
+    const text = $("cmd").value.trim();
+    if (!text) return;
+    history.unshift(text); historyIndex = -1;
+    $("cmd").value = "";
+    await run(text, { quiet: true });
+  }
+  $("cmd-run").onclick = runConsole;
+  $("cmd").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") runConsole();
+    if (e.key === "ArrowUp" && history.length) { historyIndex = Math.min(historyIndex + 1, history.length - 1); $("cmd").value = history[historyIndex]; e.preventDefault(); }
+    if (e.key === "ArrowDown") { historyIndex = Math.max(historyIndex - 1, -1); $("cmd").value = historyIndex >= 0 ? history[historyIndex] : ""; e.preventDefault(); }
+  });
+  function renderCommands() {
+    const filter = $("cmd-filter").value.trim().toLowerCase();
+    const shown = commands.filter((c) => !filter || c.command.includes(filter) || c.description.toLowerCase().includes(filter));
+    $("cmd-table").replaceChildren(...shown.map((c) => {
+      const row = el("tr", { style: "cursor:pointer", title: "Click to put in the command box" }, [el("td", { className: "id", textContent: `::${c.command}`, style: "width:180px" }), el("td", { textContent: c.description })]);
+      row.onclick = () => { $("cmd").value = c.command + " "; $("cmd").focus(); };
+      return row;
+    }));
+  }
+  $("cmd-filter").addEventListener("input", renderCommands);
+  api("/api/commands").then(({ commands: list }) => {
+    commands = list;
+    $("cmd-list").replaceChildren(...list.map((c) => el("option", { value: c.command, label: c.description })));
+    renderCommands();
+  }).catch(() => {});
+
+  // ---- Server ----
+  $("broadcast-send").onclick = async () => {
+    const text = $("broadcast").value.trim();
+    if (!text) return;
+    try { await api("/api/broadcast", { text }); $("broadcast").value = ""; toast("Broadcast sent."); }
+    catch (error) { toast(error.message, true); }
+  };
+  $("save-all").onclick = async () => {
+    try { const { saved } = await api("/api/save-all", {}); toast(`Saved ${saved} player(s).`); }
+    catch (error) { toast(error.message, true); }
+  };
+
+  const logLines = [];
+  function renderLogs() {
+    const filter = $("log-filter").value.trim().toLowerCase();
+    const pre = $("logs");
+    pre.replaceChildren(...logLines.filter((l) => !filter || l.text.toLowerCase().includes(filter)).slice(-600).map((l) =>
+      el("div", { className: `lvl-${l.level}`, textContent: `${new Date(l.at).toLocaleTimeString()}  ${l.text}` })));
+    if ($("log-follow").checked) pre.scrollTop = pre.scrollHeight;
+  }
+  async function pollLogs() {
+    if (!$("tab-server").classList.contains("active")) return;
+    try {
+      const { lines } = await api(`/api/logs?after=${logAfter}`);
+      if (lines.length) {
+        logAfter = lines[lines.length - 1].id;
+        logLines.push(...lines);
+        if (logLines.length > 2000) logLines.splice(0, logLines.length - 2000);
+        renderLogs();
+      }
+    } catch {}
+  }
+  $("log-filter").addEventListener("input", renderLogs);
+  $("log-clear").onclick = () => { logLines.length = 0; renderLogs(); };
+
+  // ---- Tabs ----
+  const TAB_KEY = "test-panel:tab";
+  function showTab(name) {
+    for (const b of $("tabs").children) b.classList.toggle("active", b.dataset.tab === name);
+    for (const s of document.querySelectorAll("main > section")) s.classList.toggle("active", s.id === `tab-${name}`);
+    try { localStorage.setItem(TAB_KEY, name); } catch {}
+    if (name === "server") pollLogs();
+  }
+  for (const b of $("tabs").children) b.onclick = () => showTab(b.dataset.tab);
+  try { const saved = localStorage.getItem(TAB_KEY); if (saved && $(`tab-${saved}`)) showTab(saved); } catch {}
+
+  refreshState();
+  setInterval(refreshState, 2000);
+  setInterval(pollLogs, 2000);
+})();
+</script>
+</body>
+</html>

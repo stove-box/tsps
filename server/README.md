@@ -256,6 +256,28 @@ world-update countdown runs first and can be cancelled from the page. Under a su
 Otherwise the page only writes the file and you restart by hand. The page is not started when
 `BROWSER_HOST=1`.
 
+## Test control panel
+
+A second local page, for testing in a running game rather than configuring the world. Pick an
+online player, then teleport them (coordinates, common locations, spots saved in the browser),
+set skill levels, spawn items and NPCs by searching their names, use quick actions (max stats,
+bank, spec, infinite HP/run, noclip...), or run any `::command` as them. Commands run with
+Developer rights for that one call, as the agent MCP's `command` tool does, and the player's
+own rank is kept. The Server tab shows tick time, memory and uptime, sends broadcasts, saves
+every player and tails the server log.
+
+At startup the server prints:
+
+```
+[test-panel] test control panel: http://localhost:49500/?token=<token from data/definitions/test-panel.token>
+```
+
+It listens on 127.0.0.1 only, on `TEST_PANEL_PORT` (default 49500; a `scripts/wt` worktree uses
+49500 + its slot). The token is kept in the gitignored `data/definitions/test-panel.token`, or
+set with `TEST_PANEL_TOKEN`. Restart, world settings, plugins and ranks stay on the
+[world config page](#world-config-page). Switch the page off with `"TestPanel": false` under
+`plugins` in `world.local.json`.
+
 ## Plugins
 
 Runtime plugins are loaded from `./plugins`. In the local panel, **Plugins → Browse plugins**
