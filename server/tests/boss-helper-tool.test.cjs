@@ -17,6 +17,7 @@ const Teleports = require("../plugins/items/bosshelpertool/Teleports.BossHelperT
 const Supplies = require("../plugins/items/bosshelpertool/Supplies.BossHelperTool");
 const Stats = require("../plugins/items/bosshelpertool/Stats.BossHelperTool");
 const Unlock = require("../plugins/items/bosshelpertool/Unlock.BossHelperTool");
+const XpReward = require("../plugins/interface/XpReward.plugin");
 const SlayerData = require("../plugins/skills/slayer/Data.Slayer");
 const SlayerState = require("../plugins/skills/slayer/State.Slayer");
 const SlayerDev = require("../plugins/skills/slayer/Dev.Slayer");
@@ -313,31 +314,60 @@ test("Take gives one; Take-5, Take-10 and Take-X only stack; a full inventory ge
   assert.deepEqual(full.messages, ["You don't have enough inventory space."]);
 });
 
-test("Set Stats lists every skill with its level, and sets the chosen one", () => {
+/** The genie lamp's grid, as the XpReward plugin drives it. */
+function useXpReward() {
+  answers["xpreward:open"] = (request) => XpReward._test.open(request);
+}
+
+/** Confirms `skill` in the open grid, as its pause button on 240:0 with the skill's slot. */
+function confirmSkill(player, skill) {
+  const slot = Array.from({ length: 24 }, (_, index) => index).find((index) => XpReward._test.skillForSlot(index) === skill);
+  XpReward._test.confirm({ player, buttonId: 240 << 16, groupId: 240, childId: 0, action: slot });
+}
+
+const DRUIDIC_RITUAL_VARP = 80;
+
+test("Set Stats opens the genie lamp's skill grid, every skill on offer", () => {
   reset();
+  useXpReward();
   const player = createPlayer();
   Stats.open(player);
-  const menu = lastMenu(player);
-  assert.equal(menu.title, "Set which skill?");
-  assert.deepEqual(menu.labels.slice(0, 8), ["(Cancel)", "Attack (1)", "Strength (1)", "Ranged (1)", "Magic (1)", "Defence (1)", "Hitpoints (10)", "Prayer (1)"]);
-  assert.equal(menu.labels[12], "Runecraft (1)");
-  assert.equal(menu.labels.length, Stats.skills().length + 1);
-  choose(player, 2);
-  assert.deepEqual(player.sent.at(-1), ["prompt", "Enter a level:"]);
+  assert.equal(player.getInterfaceId(), 240);
+  assert.ok(player.sent.some(([kind, uid, text]) => kind === "string" && uid === ((240 << 16) | 26) && text === "Set which skill?"));
+  assert.equal(player.varps.get(DRUIDIC_RITUAL_VARP), 4, "the client is shown Druidic Ritual done, so it offers Herblore");
+});
+
+test("a confirmed skill asks for its level and sets it; the grid opens again", async () => {
+  reset();
+  useXpReward();
+  const player = createPlayer();
+  Stats.open(player);
+  confirmSkill(player, core.Skill.HERBLORE);
+  assert.equal(player.varps.get(DRUIDIC_RITUAL_VARP), 0, "the real Druidic Ritual value is back");
+  await Promise.resolve();
+  assert.deepEqual(player.sent.at(-1), ["prompt", "Set Herblore (now 1) to which level?"]);
   player.prompt.execute(99);
-  assert.equal(player.getSkillManager().getMaxLevel(core.Skill.STRENGTH), 99);
+  assert.equal(player.getSkillManager().getMaxLevel(core.Skill.HERBLORE), 99);
   const gained = core.SkillManager.getExperienceForLevel(99) - core.SkillManager.getExperienceForLevel(1);
-  assert.ok(player.sent.some(([kind, name, amount]) => kind === "xpdrop" && name === "Strength" && amount === gained));
-  assert.equal(lastMenu(player).labels[2], "Strength (99)", "the menu opens again with the new level");
+  assert.ok(player.sent.some(([kind, name, amount]) => kind === "xpdrop" && name === "Herblore" && amount === gained));
+  assert.equal(player.getInterfaceId(), 240, "the grid opens again for the next skill");
+});
+
+test("closing the grid puts the real unlocks back", () => {
+  reset();
+  useXpReward();
+  const player = createPlayer();
+  Stats.open(player);
+  XpReward._test.closed({ player, interfaceId: 240 });
+  assert.equal(player.varps.get(DRUIDIC_RITUAL_VARP), 0);
 });
 
 test("Set Stats keeps Hitpoints at 10 or more, and lowering shows no experience drop", () => {
   reset();
   const player = createPlayer();
-  const hitpoints = Stats.skills().find(({ key }) => key === "HITPOINTS");
-  assert.equal(Stats.setStat(player, hitpoints, 9), false);
+  assert.equal(Stats.setStat(player, core.Skill.HITPOINTS, 9), false);
   assert.deepEqual(player.messages, ["Hitpoints can be set from 10 to 99."]);
-  const attack = Stats.skills().find(({ key }) => key === "ATTACK");
+  const attack = core.Skill.ATTACK;
   Stats.setStat(player, attack, 50);
   player.sent.length = 0;
   Stats.setStat(player, attack, 20);

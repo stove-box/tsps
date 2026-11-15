@@ -20,7 +20,7 @@ is keyed from), titled "Boss helper tool" (our title):
 | Teleports | Desert Treasure II beta, 1 | The Boss list, below. |
 | All Gear | Desert Treasure II beta, 2 | The supplies table, below. |
 | Swap Spellbook | Desert Treasure II beta, 6, and 2024 betas, 4 | The occult altar's Venerate menu, from anywhere. The same spellbook unlocks apply as at the altar. |
-| Set Stats | 2024 betas, 5 | "Set which skill?", below. |
+| Set Stats | 2024 betas, 5 | "Set which skill?" on the genie lamp's skill grid, below. |
 | Unlock Everything | 2024 betas, 6 | Every quest, miniquest and diary, and the house, below. |
 
 ## Teleports: the Boss list
@@ -65,10 +65,16 @@ have enough inventory space." Examine gives the item's examine.
 
 ## Set Stats
 
-"Set which skill?" lists "(Cancel)", then every skill with its level, in the Wiki's order (Sailing, newer than the
-page, last). Choosing one asks "Enter a level:" (our text) and sets that level and its experience. Hitpoints can't
-go below 10, and nothing goes above 99. Raising a skill shows an experience drop for what it gained. The menu then
-opens again (ours), so the next skill can be set.
+"Set which skill?" is the genie lamp's skill grid (`xpreward`, 240, through XpReward's `xpreward:open`) under the
+Wiki's title, where the beta had a chatbox list. Pick a skill and Confirm, and it asks
+"Set <skill> (now <level>) to which level?" (our text), then sets that level and its experience. Hitpoints can't go
+below 10, and nothing goes above 99. Raising a skill shows an experience drop for what it gained. The grid then opens
+again (ours), so the next skill can be set.
+
+Every skill is on offer, whatever the player has unlocked. The grid's own script refuses Herblore, Runecraft,
+Construction and Sailing until Druidic Ritual, Rune Mysteries, a house and Pandemonium. So while Set Stats has the
+grid open (`unlocks: false`), XpReward shows the client those four as done, and sends their real values back when
+it closes.
 
 ## Unlock Everything
 
@@ -89,6 +95,7 @@ All in one go, then "Unlocked: <n> quests, <n> diary tasks, and a furnished hous
 | `diary:complete-all` `{ player }` | AchievementDiaries | Every task, quietly. |
 | `construction:max-house` `{ player, location }` | Construction (`MaxHouse.Construction.js`) | The max house, saved while the player stays put. |
 | `altars:venerate-occult` `{ player }` | Altars | The Venerate menu. |
+| `xpreward:open` `{ player, title, unlocks: false, onConfirm }` | XpReward | The lamp's skill grid, every skill on offer. |
 | `league:near-bank` | LeagueMode | Whether a bank is near (already there, used by the chugging barrel). |
 
 ## Not covered

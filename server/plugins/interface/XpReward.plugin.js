@@ -13,9 +13,13 @@
  * unlocks script 3809 checks, since only the slot reaches it.
  *
  *   api.emitCustomEvent("xpreward:open", {
- *     player, minLevel?, title?, skills?,
+ *     player, minLevel?, title?, skills?, unlocks?,
  *     onConfirm(skill, statName) -> the message box text, or null when refused,
  *   })
+ *
+ * `unlocks: false` offers every skill whatever the player has unlocked (the Boss helper tool's Set Stats): while
+ * it's open the client is shown the four unlocks script 3809 reads as done, and their real values come back when
+ * it closes, unless something changed them meanwhile.
  */
 const { CacheDefinitions } = require("../../src/main/typescript/elvarg/game/cache/CacheDefinitions");
 const { Skill } = require("../../src/main/typescript/elvarg/game/model/Skill");
@@ -37,8 +41,42 @@ const SLOT_TO_STAT_ENUM = 681;
 const STAT_NAME_ENUM = 680;
 const STAT_BIT_ENUM = 81;
 const DEFAULT_TITLE = "Choose the stat you wish to be advanced!";
+/**
+ * What script 3809 reads before it lets a skill be chosen, and the value it accepts: Herblore (druidquest),
+ * Runecraft (runemysteries), Construction (poh_house_location: any house will do; 1 is Rimmington) and Sailing
+ * (sailing_intro).
+ */
+const CLIENT_UNLOCKS = [
+  { varp: 80, unlocked: 4 }, { varp: 63, unlocked: 6 }, { varbit: 2187, unlocked: 1, anyValue: true }, { varbit: 18314, unlocked: 50 },
+];
 
 const pending = new WeakMap();
+
+const readUnlock = (sender, unlock) => (unlock.varp !== undefined ? sender.getVarp(unlock.varp) : sender.getVarbit(unlock.varbit));
+const sendUnlock = (sender, unlock, value) =>
+  (unlock.varp !== undefined ? sender.sendConfig(unlock.varp, value) : sender.sendVarbit(unlock.varbit, value));
+
+/** Shows the client every unlock done, keeping the real values of those that weren't. */
+function presentUnlocked(player) {
+  const sender = player.getPacketSender();
+  const restore = [];
+  for (const unlock of CLIENT_UNLOCKS) {
+    const real = readUnlock(sender, unlock);
+    if (unlock.anyValue ? real !== 0 : real >= unlock.unlocked) continue;
+    restore.push({ unlock, real });
+    sendUnlock(sender, unlock, unlock.unlocked);
+  }
+  return restore;
+}
+
+/** The real values back, where nothing has set them since. */
+function restoreUnlocks(player, request) {
+  const sender = player.getPacketSender();
+  for (const { unlock, real } of request.restore ?? []) {
+    if (readUnlock(sender, unlock) === unlock.unlocked) sendUnlock(sender, unlock, real);
+  }
+  request.restore = [];
+}
 
 function statName(skill) {
   return String(CacheDefinitions.getEnumValues(STAT_NAME_ENUM).get(skill.getClientId()) ?? skill.getName());
@@ -62,7 +100,10 @@ function skillForSlot(slot) {
 function open(request) {
   const { player } = request;
   if (!player || typeof request.onConfirm !== "function") return;
+  const previous = pending.get(player);
+  if (previous) restoreUnlocks(player, previous);
   pending.set(player, request);
+  if (request.unlocks === false) request.restore = presentUnlocked(player);
   const sender = player.getPacketSender();
   sender.sendConfig(MIN_LEVEL_VARP, request.minLevel ?? 0);
   sender.sendConfig(AVAILABLE_VARP, availableMask(request.skills));
@@ -100,12 +141,13 @@ function confirm(event) {
   if (!request || !skill) return;
   if (request.skills && !request.skills.includes(skill)) return;
   if (player.getSkillManager().getMaxLevel(skill) < (request.minLevel ?? 0)) return;
-  const locked = lockedMessage(player, skill);
+  const locked = request.unlocks === false ? null : lockedMessage(player, skill);
   if (locked) {
     player.sendMessage(locked);
     return;
   }
   pending.delete(player);
+  restoreUnlocks(player, request);
   const sender = player.getPacketSender();
   const text = request.onConfirm(skill, statName(skill));
   sender.sendInterfaceRemoval();
@@ -126,6 +168,7 @@ function confirm(event) {
 /** Closed without confirming (Close, walking away). */
 function closed({ player, interfaceId }) {
   if (interfaceId !== XPREWARD || !pending.has(player)) return;
+  restoreUnlocks(player, pending.get(player));
   pending.delete(player);
   player.getPacketSender().sendVarbit(BUSY_VARBIT, 0);
 }
