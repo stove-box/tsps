@@ -52,16 +52,18 @@ function open(player) {
   sender.sendInterfaceFlagsRange(ITEMS, 0, supplyItems().length - 1, ITEM_EVENTS);
 }
 
-function clickItem({ player, slot, opId }) {
+/** The client sends the op as the packet's button number (`action`); `opId` is only set by some paths. */
+function clickItem({ player, slot, opId, action }) {
   if (!isOpen(player)) return false;
   const id = supplyItems()[slot];
   if (id === undefined) return true;
-  if (opId === OP.EXAMINE) {
+  const op = opId ?? action;
+  if (op === OP.EXAMINE) {
     Common.getCore().examineItem(player, id, 1);
-  } else if (opId === OP.TAKE_X) {
+  } else if (op === OP.TAKE_X) {
     Common.askNumber(player, "Enter amount:", (amount) => take(player, id, amount));
-  } else if (AMOUNTS[opId]) {
-    take(player, id, AMOUNTS[opId]);
+  } else if (AMOUNTS[op]) {
+    take(player, id, AMOUNTS[op]);
   }
   return true;
 }

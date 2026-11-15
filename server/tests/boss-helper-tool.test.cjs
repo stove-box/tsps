@@ -301,16 +301,17 @@ test("Take gives one; Take-5, Take-10 and Take-X only stack; a full inventory ge
   const items = Supplies.supplyItems();
   const stackable = items.findIndex((id) => core.ItemDefinition.forId(id).isStackable());
   const single = items.findIndex((id) => !core.ItemDefinition.forId(id).isStackable());
-  Supplies.clickItem({ player, slot: single, opId: 1 });
-  Supplies.clickItem({ player, slot: stackable, opId: 3 });
-  Supplies.clickItem({ player, slot: stackable, opId: 4 });
+  // As the client sends them: the op is the packet's button number (action), with no opId.
+  Supplies.clickItem({ player, slot: single, action: 1 });
+  Supplies.clickItem({ player, slot: stackable, action: 3 });
+  Supplies.clickItem({ player, slot: stackable, action: 4 });
   assert.deepEqual(player.sent.at(-1), ["prompt", "Enter amount:"]);
   player.prompt.execute(250);
   const amounts = player.getInventory().getItems().map((item) => [item.getId(), item.getAmount()]);
   assert.deepEqual(amounts, [[items[single], 1], [items[stackable], 10], [items[stackable], 250]]);
   const full = createPlayer({ inventory: Array.from({ length: 28 }, () => new core.Item(core.ItemIdentifiers.HAMMER, 1)) });
   Supplies.open(full);
-  Supplies.clickItem({ player: full, slot: single, opId: 1 });
+  Supplies.clickItem({ player: full, slot: single, action: 1 });
   assert.deepEqual(full.messages, ["You don't have enough inventory space."]);
 });
 
