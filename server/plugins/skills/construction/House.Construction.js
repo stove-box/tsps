@@ -292,6 +292,7 @@ function enterHouse(player, buildingMode, diaryEntryContext = null, via = "telep
   player.getPacketSender().sendVarbit(HOUSE_LOCKED_VARBIT, house.save.locked ? 1 : 0);
   syncHouseOptions(player);
   syncKickOption(player);
+  MaxHouse.setUpOnEntry(player, house);
   if (via === "options") player.sendMessage(buildingMode ? "Building mode is now on." : "Building mode is now off.");
   if (canCreditDiaryTask && house.owner === player && houseFor(player) === house) {
     api.emitCustomEvent("diary:task", { player, diary: "ardougne", task: ARDOUGNE_HARD_POH_TASK });
@@ -2060,6 +2061,7 @@ function attach(api) {
   api.onCustomEvent("construction:house-tablet", houseTablet);
   api.onCustomEvent("construction:owns-house", ownsHouse);
   api.onCustomEvent("construction:grant-house", grantHouse);
+  api.onCustomEvent("construction:max-house", MaxHouse.maxHouseEvent);
   api.onCustomEvent("construction:spirit-tree", spiritTreeHouse);
   api.onCustomEvent("construction:spirit-tree-travel", spiritTreeTravel);
   api.onCustomEvent("construction:exit-house", exitHouseTo);

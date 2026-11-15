@@ -12,6 +12,8 @@
  * - ::mortimertasks <amount> sets how many Mortimer tasks the player has done (his modifiers
  *   unlock at 15, 25 and 40, a third choice at 50) and drops a waiting choice, so the next one
  *   is rolled with the new count.
+ * - "slayer:assign-task" sets a task or boss task the same way for another plugin (the Boss helper
+ *   tool's teleports).
  */
 const Data = require("./Data.Slayer");
 const State = require("./State.Slayer");
@@ -75,6 +77,30 @@ function setTask({ player, parts }) {
   player.sendMessage(`Your task is now ${amount} ${task.displayName || task.name}.`);
 }
 
+/** A task or boss name as the cache's tables word it, for matching: "The Abyssal Sire" is "abyssal sire". */
+const plainName = (name) => String(name ?? "").trim().toLowerCase().replace(/^the /, "");
+
+/**
+ * "slayer:assign-task" { player, task?, boss?, amount, assigned }: sets a task outright, as ::slayertask does,
+ * from Duradel (his tasks count anywhere, which Krystilia's don't). `boss` names a boss task's boss
+ * ("Cerberus", "the Giant Mole"); otherwise `task` names the task ("TzTok-Jad"). `assigned` is the task's
+ * name once set, and stays unset for a name the cache doesn't have.
+ */
+function assignTask(request) {
+  const { player } = request ?? {};
+  const amount = Number(request?.amount);
+  if (!player || !Number.isInteger(amount) || amount <= 0) return;
+  const data = Data.get();
+  const find = (entries, name) => [...entries].find(([, entry]) => plainName(entry.name) === name || plainName(entry.displayName) === name);
+  const boss = request.boss ? find(data.bosses, plainName(request.boss)) : null;
+  const task = boss ? data.taskById.get(Data.BOSS_TASK_ID) : find(data.taskById, plainName(request.task))?.[1];
+  if (!task || (request.boss && !boss)) return;
+  State.update(player,
+    { slayer_master: Data.masterForNpcName("Duradel")?.id || 0, slayer_target_bossid: boss ? boss[0] : 0 },
+    { slayer_count: amount, slayer_count_original: amount, slayer_target: task.id, slayer_area: 0 });
+  request.assigned = boss ? boss[1].displayName || boss[1].name : task.displayName || task.name;
+}
+
 function setMortimerTasks({ player, parts }) {
   const amount = Number(parts?.[1]);
   if (!Number.isInteger(amount) || amount < 0) {
@@ -94,6 +120,7 @@ function attach(api) {
   api.registerCommand("superior", spawnSuperior, DEVELOPER, "Spawn the current Slayer task's superior");
   api.registerCommand("slayertask", setTask, DEVELOPER, "Set a Slayer task: ::slayertask <amount> <task name>");
   api.registerCommand("mortimertasks", setMortimerTasks, DEVELOPER, "Set Mortimer tasks completed: ::mortimertasks <amount>");
+  api.onCustomEvent("slayer:assign-task", assignTask);
 }
 
-module.exports = { attach, completeTask, setPoints, clearUnlocks, spawnSuperior, setMortimerTasks };
+module.exports = { attach, completeTask, setPoints, clearUnlocks, spawnSuperior, setMortimerTasks, assignTask };

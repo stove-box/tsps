@@ -259,6 +259,11 @@ function venerateOccultAltar({ player }) {
   return true;
 }
 
+/** "altars:venerate-occult" { player, handled }: the occult altar's Venerate menu, away from the altar (the Boss helper tool). */
+function venerateOccultAltarEvent(request) {
+  if (request?.player) request.handled = venerateOccultAltar(request);
+}
+
 function standardSpellbook({ player }) {
   return switchAtOccultAltar(player, MagicSpellbook.NORMAL);
 }
@@ -297,6 +302,7 @@ module.exports = {
       Lunar: lunarSpellbook,
       Arceuus: arceuusSpellbook,
     });
+    pluginApi.onCustomEvent("altars:venerate-occult", venerateOccultAltarEvent);
   },
 };
 module.exports._test = { ancientAltar, lunarAltar, ancientSpellbook, lunarSpellbook, arceuusSpellbook, standardSpellbook, venerateOccultAltar, handleJaldraochtAltar };

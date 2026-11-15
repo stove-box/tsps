@@ -203,7 +203,29 @@ module.exports = function attachProgress(pluginApi) {
   api.onPlayerLogin(restore);
 };
 
+/**
+ * Every task of every diary done at once, quietly: no task lines or congratulations boxes, only the diary tab's
+ * varbits. Rewards stay unclaimed. Returns how many tasks were newly done.
+ */
+function completeAll(player) {
+  let added = 0;
+  for (const diary of DIARIES) {
+    const done = doneTasks(player, diary);
+    for (const tier of TIERS) {
+      for (const task of diary.tiers[tier].tasks) {
+        if (done.has(task.key)) continue;
+        done.add(task.key);
+        added++;
+      }
+    }
+    store(player, TASKS_ATTRIBUTE, diary, [...done]);
+    sendDiary(player, diary);
+  }
+  if (added > 0) api.emitCustomEvent("persistence:save", { player, reason: "diary-tier-completion" });
+  return added;
+}
+
 Object.assign(module.exports, {
   TASKS_ATTRIBUTE, REWARDS_ATTRIBUTE, doneTasks, claimedTiers, tierCount, isTierComplete, isStarted,
-  notifyTaskProgress, completeTask, claimTier, resetTiers, restore, sendDiary, tierGeneration,
+  notifyTaskProgress, completeTask, completeAll, claimTier, resetTiers, restore, sendDiary, tierGeneration,
 });

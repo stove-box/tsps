@@ -14,9 +14,12 @@ const Trophies = require("./Trophies.Construction");
 // turned so most of its doorways meet its neighbours'; the halls' upper halves stand over them,
 // the dungeon stairs under the skill hall and the oubliette under the throne room, and the rest of
 // the dungeon grows from the stairs. Portals, the nexus, the cape hanger, trophy displays and the
-// prize chest come set up.
+// prize chest come set up. "construction:max-house" saves the same house for a player who stays put,
+// and those extras are set up the first time the owner goes in.
 const { HOUSE_ATTRIBUTE } = Data;
 const BACKUP_ATTRIBUTE = "construction:house-backup";
+/** Set on a max house saved away from it ("construction:max-house"): its set-up waits for the owner to go in. */
+const SETUP_PENDING = "maxHouseSetUp";
 const GRID = 8;
 const GROUND = 1, UPPER = 2, BASEMENT = 0;
 const GROUND_ROOMS = [
@@ -128,15 +131,26 @@ function setUp(player, house) {
   house.save.prize = PRIZE;
 }
 
-function maxHouse({ player }) {
+/**
+ * Saves the max house in place of the current one (kept for ::restorehouse), at `location` (a house location id)
+ * when given. `restoreLocation`: a player inside their old house is put outside its portal.
+ */
+function saveMaxHouse(player, { location, restoreLocation = false } = {}) {
   const current = House.houseStateFor(player);
   if (!player.getAttribute(BACKUP_ATTRIBUTE)) player.setAttribute(BACKUP_ATTRIBUTE, JSON.parse(JSON.stringify(current)));
-  House.releaseHouse(player, false);
+  House.releaseHouse(player, restoreLocation);
   const save = { ...JSON.parse(JSON.stringify(current)), owned: true, locked: false };
+  if (location !== undefined) save.location = location;
   save.rooms = layout(save);
   delete save.prize;
   delete save.treasure;
+  delete save[SETUP_PENDING];
   player.setAttribute(HOUSE_ATTRIBUTE, save);
+  return save;
+}
+
+function maxHouse({ player }) {
+  const save = saveMaxHouse(player);
   if (!House.enterHouse(player, false)) return player.sendMessage("Couldn't load the new house.");
   const house = House.houseFor(player);
   if (house) {
@@ -145,6 +159,32 @@ function maxHouse({ player }) {
   }
   const count = save.rooms.flat(2).filter(Boolean).length;
   player.sendMessage(`Your house now has ${count} rooms, all furnished. ::restorehouse brings the old one back.`);
+}
+
+/**
+ * "construction:max-house" { player, location, handled }: the max house saved for a player who stays where they are
+ * (the Boss helper tool's Unlock Everything), at house location `location` when given. Its portals, nexus, hanger and
+ * trophies are set up the first time the owner goes in (`setUpOnEntry`).
+ */
+function maxHouseEvent(request) {
+  const { player } = request ?? {};
+  if (!player) return;
+  const save = saveMaxHouse(player, { location: request.location, restoreLocation: true });
+  save[SETUP_PENDING] = true;
+  House.syncHouseOptions(player);
+  request.handled = true;
+}
+
+/**
+ * The owner has just gone into their house: a max house saved by "construction:max-house" gets its portals,
+ * nexus, hanger and trophies now (they need the built house), and is drawn again in the mode it was entered in.
+ */
+function setUpOnEntry(player, house) {
+  if (house?.owner !== player || house.save?.[SETUP_PENDING] !== true) return;
+  delete house.save[SETUP_PENDING];
+  setUp(player, house);
+  player.setAttribute(HOUSE_ATTRIBUTE, house.save);
+  if (!house.rebuild(player, house.buildingMode)) player.sendMessage("Unable to rebuild your house.");
 }
 
 function restoreHouse({ player }) {
@@ -157,4 +197,4 @@ function restoreHouse({ player }) {
   player.sendMessage("Your old house is back. Enter it at your house portal.");
 }
 
-Object.assign(module.exports, { maxHouse, restoreHouse, BACKUP_ATTRIBUTE });
+Object.assign(module.exports, { maxHouse, restoreHouse, maxHouseEvent, setUpOnEntry, BACKUP_ATTRIBUTE });

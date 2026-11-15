@@ -16,6 +16,8 @@
  *     -> sets `claimed` from the canonical claimed-tier record, not task completion
  *   api.emitCustomEvent("diary:all-complete", { player })
  *     -> sets `complete` when every tier of every diary is done
+ *   api.emitCustomEvent("diary:complete-all", { player })
+ *     -> completes every task of every diary quietly (no task lines or boxes); `completed` counts them
  *   api.emitCustomEvent("diary:tokkul", { player, amount })
  *     -> doubles `amount` for the Elite Karamja Diary (TzHaar Fight Cave, Inferno, Ket-Rak's Challenges)
  *
@@ -82,6 +84,10 @@ function onAllComplete(request) {
   if (request.player) {
     request.complete = DIARIES.every((diary) => TIERS.every((tier) => Progress.isTierComplete(request.player, diary, tier)));
   }
+}
+
+function onCompleteAll(request) {
+  if (request.player) request.completed = Progress.completeAll(request.player);
 }
 
 function describe(player, diary) {
@@ -197,8 +203,9 @@ module.exports = {
     api.onCustomEvent("diary:has-task", onHasTask);
     api.onCustomEvent("diary:is-reward-claimed", onIsRewardClaimed);
     api.onCustomEvent("diary:all-complete", onAllComplete);
+    api.onCustomEvent("diary:complete-all", onCompleteAll);
     api.onCustomEvent("diary:tokkul", onTokkul);
     api.registerCommand("diary", diaryCommand, api.core.PlayerRights.ADMINISTRATOR, "Show or set achievement diary progress: ::diary <name> [tier|all] [complete|reset]");
   },
-  _test: { diaryCommand, findDiaries, onTask, onIsComplete, onIsStarted, onHasTask, onAllComplete, onTokkul },
+  _test: { diaryCommand, findDiaries, onTask, onIsComplete, onIsStarted, onHasTask, onAllComplete, onCompleteAll, onTokkul },
 };

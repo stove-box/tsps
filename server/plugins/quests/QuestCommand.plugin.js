@@ -9,6 +9,9 @@
  *
  * <name> is a quest's name or key, any case; part of a name works when only one quest matches
  * ("grand tree"). Quest points follow a quest set below or above its completion stage.
+ *
+ * Other plugins complete quests the same quiet way (stage and points, nothing else) through
+ * "quest:auto-complete" (one, by key) and "quest:auto-complete-all".
  */
 const QuestRuntime = require("./QuestRuntime");
 const { PlayerRights } = require("../../src/main/typescript/elvarg/game/model/rights/PlayerRights");
@@ -75,11 +78,39 @@ function questCommand({ player, parts }) {
   return true;
 }
 
+/**
+ * Sets an unfinished quest to its completion stage, with its quest points, as `::quest <name> <stage>` does: no
+ * rewards, experience, scroll or "quest:completed" (that would announce it to the clan), so nothing earned is
+ * handed out. Returns whether it was unfinished.
+ */
+function autoComplete(player, quest) {
+  if (quest.isComplete(player)) return false;
+  setStage(player, quest, quest.completionValue ?? 2);
+  return true;
+}
+
+/**
+ * "quest:auto-complete" { player, key, completed }: one quest, by key, completed without its prerequisites or
+ * rewards (the Boss helper tool's teleports). `completed` is true when it was unfinished.
+ */
+function autoCompleteQuest(request) {
+  const quest = QuestRuntime.getRegisteredQuests().find((entry) => entry.key === request?.key);
+  if (quest && request.player) request.completed = autoComplete(request.player, quest);
+}
+
+/** "quest:auto-complete-all" { player, completed }: every quest and miniquest, as one; `completed` counts them. */
+function autoCompleteAll(request) {
+  if (!request?.player) return;
+  request.completed = QuestRuntime.getRegisteredQuests().filter((quest) => autoComplete(request.player, quest)).length;
+}
+
 module.exports = {
   name: "QuestCommand",
   description: "Adds the admin ::quest command to show, set, complete or reset a player's quest stage, for testing quest-gated content.",
   register(api) {
     api.registerCommand("quest", questCommand, PlayerRights.ADMINISTRATOR, "Show or set a quest's progress: ::quest <name> [complete|reset|<stage>]");
+    api.onCustomEvent("quest:auto-complete", autoCompleteQuest);
+    api.onCustomEvent("quest:auto-complete-all", autoCompleteAll);
   },
-  _test: { questCommand, findQuests },
+  _test: { questCommand, findQuests, autoCompleteQuest, autoCompleteAll },
 };
