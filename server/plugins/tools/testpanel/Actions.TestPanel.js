@@ -3,6 +3,7 @@
 // the next game tick (a TaskManager task), never inside the HTTP callback.
 
 const { HttpError } = require("../worldadmin/Http.WorldAdmin");
+const { resolveLoadouts } = require("./Loadouts.TestPanel");
 
 const SKILL_NAMES = [
   "Attack", "Defence", "Strength", "Hitpoints", "Ranged", "Prayer", "Magic", "Cooking",
@@ -127,8 +128,7 @@ function playerAction(core, name) {
   return playerDetail(findPlayer(core, name));
 }
 
-/** Runs `text` as `name` with Developer rights for this one command, like the agent MCP does. */
-async function commandAction(core, { player: name, text }) {
+function parseCommand(text) {
   if (typeof text !== "string") throw new HttpError(400, "text must be a string");
   const raw = text.replace(/\u0000/g, " ").replace(/^[:/]+/, "").trim();
   if (!raw || raw.length > MAX_COMMAND_LENGTH) throw new HttpError(400, `Commands are 1 to ${MAX_COMMAND_LENGTH} characters.`);
@@ -136,28 +136,147 @@ async function commandAction(core, { player: name, text }) {
   const base = parts[0].toLowerCase();
   if (!/^[a-z0-9_]+$/.test(base)) throw new HttpError(400, "Not a command.");
   parts[0] = base;
+  return { raw, base, parts };
+}
 
-  const player = findPlayer(core, name);
-  const capture = collectMessages(player);
-  let handled = false;
+/** On the game tick: runs a parsed command as `player` with Developer rights for this one call. */
+function runAsDeveloper(core, player, { raw, base, parts }) {
+  const rights = player.getRights();
+  player.setRights(core.PlayerRights.DEVELOPER);
   try {
-    handled = await onNextTick(core, () => {
-      if (player.isRegistered && !player.isRegistered()) throw new HttpError(409, `${name} logged out.`);
-      const rights = player.getRights();
-      player.setRights(core.PlayerRights.DEVELOPER);
-      try {
-        return core.PluginManager.emitCommand({ player, raw, base, parts, handled: false });
-      } finally {
-        // A command that changed the rank itself keeps its change.
-        if (player.getRights() === core.PlayerRights.DEVELOPER) player.setRights(rights);
+    return core.PluginManager.emitCommand({ player, raw, base, parts, handled: false });
+  } finally {
+    // A command that changed the rank itself keeps its change.
+    if (player.getRights() === core.PlayerRights.DEVELOPER) player.setRights(rights);
+  }
+}
+
+function assertOnline(player, name) {
+  if (player.isRegistered && !player.isRegistered()) throw new HttpError(409, `${name} logged out.`);
+}
+
+/** Runs `fn` on the next tick while collecting the chat messages `player` gets meanwhile. */
+async function withMessages(core, player, fn) {
+  const capture = collectMessages(player);
+  let result;
+  try {
+    result = await onNextTick(core, fn);
+    for (let tick = 0; tick < MESSAGE_TICKS; tick++) await onNextTick(core, () => undefined);
+  } finally {
+    capture.stop();
+  }
+  return { result, messages: capture.messages };
+}
+
+/** Runs `text` as `name` with Developer rights for this one command, like the agent MCP does. */
+async function commandAction(core, { player: name, text }) {
+  const command = parseCommand(text);
+  const player = findPlayer(core, name);
+  const { result: handled, messages } = await withMessages(core, player, () => {
+    assertOnline(player, name);
+    return runAsDeveloper(core, player, command);
+  });
+  if (!handled) messages.push(`::${command.base} is not a command.`);
+  return { handled, messages, player: player.isRegistered?.() === false ? null : playerDetail(player) };
+}
+
+function loadoutsAction(core) {
+  return { loadouts: resolveLoadouts(core) };
+}
+
+/** On the game tick: empties the inventory and takes off everything worn, through the real unequip. */
+function stripPlayer(core, player) {
+  const inventory = player.getInventory();
+  const equipment = player.getEquipment();
+  inventory.resetItems().refreshItems();
+  for (let slot = 0; slot < equipment.capacity(); slot++) {
+    if (!equipment.getItems()[slot]?.isValid?.()) continue;
+    core.EquipPacketListener.unequip(player, slot);
+    inventory.resetItems().refreshItems();
+  }
+}
+
+// What the equip path says when a quest gates an item, and the quest that unlocks it.
+const QUEST_REQUIREMENT = /You need to complete (?:the )?(.+?) quest first/i;
+// AncientRings: the Desert Treasure II rings need their boss killed, which the quest counts.
+const ANCIENT_RING_REFUSAL = /The ring slips off your finger/i;
+const ANCIENT_RING_QUEST = "Desert Treasure II";
+
+/** On the game tick: wears each item through the real equip path. Returns what stayed off. */
+function wearAll(core, player, items) {
+  const inventory = player.getInventory();
+  const notWorn = [];
+  const notAdded = [];
+  for (const item of items) {
+    if (item.id === null) { notWorn.push(item.constant); continue; }
+    inventory.adds(item.id, item.amount);
+    const slot = inventory.getSlotForItemId(item.id);
+    if (slot < 0) { notAdded.push(item.name); continue; }
+    core.EquipPacketListener.equip(player, item.id, slot, core.Inventory.INTERFACE_ID);
+    if (!player.getEquipment().contains(item.id)) notWorn.push(item.name);
+  }
+  return { notWorn, notAdded };
+}
+
+/** The quests named by equip refusals in `messages` (from index `from`). */
+function questsNamedIn(messages, from) {
+  const quests = new Set();
+  for (const message of messages.slice(from)) {
+    const text = String(message).replace(/<[^>]+>/g, "");
+    const named = QUEST_REQUIREMENT.exec(text)?.[1]?.trim();
+    if (named) quests.add(named);
+    if (ANCIENT_RING_REFUSAL.test(text)) quests.add(ANCIENT_RING_QUEST);
+  }
+  return [...quests];
+}
+
+/**
+ * Puts a loadout on `name`: optional ::master first (so level requirements pass), then the worn
+ * items through the real equip path, then the inventory. With `unlock`, quests that refused an
+ * item are completed with ::quest <name> complete and the gear is put on again. Reports what
+ * could not be worn or added.
+ */
+async function loadoutAction(core, { player: name, id, maxStats = true, replace = true, unlock = true }) {
+  const loadout = resolveLoadouts(core).find((entry) => entry.id === id);
+  if (!loadout) throw new HttpError(404, "Unknown loadout.");
+  const player = findPlayer(core, name);
+  const strip = loadout.keepWorn ? () => player.getInventory().resetItems().refreshItems() : () => stripPlayer(core, player);
+  const capture = collectMessages(player);
+  let result;
+  try {
+    result = await onNextTick(core, () => {
+      assertOnline(player, name);
+      if (maxStats) runAsDeveloper(core, player, parseCommand("master"));
+      if (replace) strip();
+      const before = capture.messages.length;
+      let worn = wearAll(core, player, loadout.equip);
+      const completedQuests = [];
+      const quests = unlock && worn.notWorn.length ? questsNamedIn(capture.messages, before) : [];
+      if (quests.length) {
+        for (const quest of quests) {
+          runAsDeveloper(core, player, parseCommand(`quest ${quest} complete`));
+          completedQuests.push(quest);
+        }
+        // Quest rewards land in the inventory, and the refused items are still there: start over.
+        if (replace) strip();
+        else for (const item of loadout.equip) if (item.id !== null && !player.getEquipment().contains(item.id)) player.getInventory().delete(item.id, item.amount);
+        worn = wearAll(core, player, loadout.equip);
       }
+      const inventory = player.getInventory();
+      const notAdded = [...worn.notAdded];
+      for (const item of loadout.inventory) {
+        if (item.id === null) { notAdded.push(item.constant); continue; }
+        if (inventory.getAddableAmount?.(new core.Item(item.id, item.amount)) === 0) { notAdded.push(item.name); continue; }
+        inventory.adds(item.id, item.amount);
+      }
+      inventory.refreshItems();
+      return { notWorn: worn.notWorn, notAdded, completedQuests };
     });
     for (let tick = 0; tick < MESSAGE_TICKS; tick++) await onNextTick(core, () => undefined);
   } finally {
     capture.stop();
   }
-  if (!handled) capture.messages.push(`::${base} is not a command.`);
-  return { handled, messages: capture.messages, player: player.isRegistered?.() === false ? null : playerDetail(player) };
+  return { loadout: loadout.name, ...result, messages: capture.messages, player: playerDetail(player) };
 }
 
 /** Every registered command a Developer may run, with its description. */
@@ -223,6 +342,8 @@ module.exports = {
   playerAction,
   commandAction,
   commandsAction,
+  loadoutsAction,
+  loadoutAction,
   itemsAction,
   npcsAction,
   broadcastAction,

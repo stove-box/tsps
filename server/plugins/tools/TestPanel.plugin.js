@@ -15,6 +15,13 @@ const Actions = require("./testpanel/Actions.TestPanel");
 const DEFAULT_PORT = 49500;
 const TOKEN_FILE_NAME = "test-panel.token";
 const PAGE_FILE = path.join(__dirname, "testpanel", "page.html");
+// The world config page's fonts and icons, so both pages look alike.
+const SHARED_ASSET_DIRECTORY = path.join(__dirname, "worldadmin", "panel");
+const SHARED_ASSETS = new Map([
+  ["favicon.svg", "image/svg+xml"],
+  ["favicon-96x96.png", "image/png"],
+  ...[400, 500, 600].map((weight) => [`fonts/plex-sans-${weight}.woff2`, "font/woff2"]),
+]);
 
 let pluginApi = null;
 let httpServer = null;
@@ -29,17 +36,17 @@ function panelPort(env = process.env) {
   return Number.isInteger(slot) && slot >= 1 && slot <= 99 ? DEFAULT_PORT + slot : DEFAULT_PORT;
 }
 
-function sendPage(response) {
-  require("fs").readFile(PAGE_FILE, (error, html) => {
-    if (error) return send(response, 404, "The test panel page is missing.");
+function sendFile(response, file, contentType, cacheControl = "no-store") {
+  require("fs").readFile(file, (error, body) => {
+    if (error) return send(response, 404, "Not found.");
     response.writeHead(200, {
-      "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "no-store",
+      "Content-Type": contentType,
+      "Cache-Control": cacheControl,
       "X-Content-Type-Options": "nosniff",
       "X-Frame-Options": "DENY",
       "Referrer-Policy": "no-referrer",
     });
-    response.end(html);
+    response.end(body);
   });
 }
 
@@ -47,6 +54,7 @@ const GET_ROUTES = {
   "/api/state": (url) => Actions.stateAction(pluginApi.core),
   "/api/player": (url) => Actions.playerAction(pluginApi.core, url.searchParams.get("name")),
   "/api/commands": () => Actions.commandsAction(pluginApi),
+  "/api/loadouts": () => Actions.loadoutsAction(pluginApi.core),
   "/api/items": (url) => Actions.itemsAction(pluginApi.core, url.searchParams.get("q")),
   "/api/npcs": (url) => Actions.npcsAction(pluginApi.core, url.searchParams.get("q")),
   "/api/logs": (url) => ({ lines: linesAfter(Number(url.searchParams.get("after")) || 0) }),
@@ -54,6 +62,7 @@ const GET_ROUTES = {
 
 const POST_ROUTES = {
   "/api/command": (body) => Actions.commandAction(pluginApi.core, body),
+  "/api/loadout": (body) => Actions.loadoutAction(pluginApi.core, body),
   "/api/broadcast": (body) => Actions.broadcastAction(pluginApi.core, body),
   "/api/save-all": () => Actions.saveAllAction(pluginApi.core),
 };
@@ -68,7 +77,13 @@ function createHandler(access, port) {
       return send(response, 302, "", { Location: "/", "Set-Cookie": sessionCookie(access.token, port, false) });
     }
     if (!hasToken(request, access.token, port)) return send(response, 401, { error: "Unauthorized" });
-    if (url.pathname === "/" && method === "GET") return sendPage(response);
+    if (url.pathname === "/" && method === "GET") return sendFile(response, PAGE_FILE, "text/html; charset=utf-8");
+    if (method === "GET" && url.pathname.startsWith("/panel/")) {
+      const asset = url.pathname.slice("/panel/".length);
+      const contentType = SHARED_ASSETS.get(asset);
+      if (!contentType) throw new HttpError(404, "Not found");
+      return sendFile(response, path.join(SHARED_ASSET_DIRECTORY, asset), contentType, "private, max-age=86400");
+    }
 
     const get = GET_ROUTES[url.pathname];
     if (get) {

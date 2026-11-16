@@ -261,7 +261,12 @@ Otherwise the page only writes the file and you restart by hand. The page is not
 A second local page, for testing in a running game rather than configuring the world. Pick an
 online player, then teleport them (coordinates, common locations, spots saved in the browser),
 set skill levels, spawn items and NPCs by searching their names, use quick actions (max stats,
-bank, spec, infinite HP/run, noclip...), or run any `::command` as them. Commands run with
+bank, spec, infinite HP/run, noclip...), or run any `::command` as them. The Gear tab has 32
+loadouts (max melee, ranged and magic setups, Bandos, Armadyl, Barrows, Void, PvP builds,
+skilling outfits and supply packs), defined by `ItemIdentifiers` name in
+`plugins/tools/testpanel/Loadouts.TestPanel.js`. They are worn through the normal equip path,
+optionally after `::master`, and an item a quest refuses can have that quest completed with
+`::quest <name> complete` and be tried again. The page shares the world config page's look. Commands run with
 Developer rights for that one call, as the agent MCP's `command` tool does, and the player's
 own rank is kept. The Server tab shows tick time, memory and uptime, sends broadcasts, saves
 every player and tails the server log.

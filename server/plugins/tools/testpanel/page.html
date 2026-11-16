@@ -3,213 +3,344 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Test Control Panel</title>
+<title>Test Panel</title>
+<link rel="icon" type="image/png" href="/panel/favicon-96x96.png" sizes="96x96">
+<link rel="icon" type="image/svg+xml" href="/panel/favicon.svg">
 <style>
+  /* Matches the world config page (worldadmin/panel/page.html): same tokens, layout and controls. */
+  @font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400; font-display: swap; src: url("/panel/fonts/plex-sans-400.woff2") format("woff2"); }
+  @font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 500; font-display: swap; src: url("/panel/fonts/plex-sans-500.woff2") format("woff2"); }
+  @font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 600; font-display: swap; src: url("/panel/fonts/plex-sans-600.woff2") format("woff2"); }
   :root {
-    --bg: #f4f5f7; --panel: #ffffff; --line: #dfe2e7; --text: #1d2129; --muted: #667085;
-    --accent: #2f6fde; --accent-text: #ffffff; --danger: #c93a3a; --ok: #1f8f55; --chip: #eef1f6;
-    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #14161a; --panel: #1c1f25; --line: #2c3038; --text: #e6e8ec; --muted: #9aa1ad;
-      --accent: #5b8ff0; --accent-text: #0d1117; --danger: #ef6b6b; --ok: #4cc38a; --chip: #262a32;
-    }
+    color-scheme: dark;
+    --bg: #16171a; --bar: #121315; --panel: #1c1d21; --panel-hover: #222328; --panel-deep: #1d1f22;
+    --field: #15171a; --rule: rgba(202, 169, 94, .16); --line: rgba(202, 169, 94, .26);
+    --text: #e4dfd3; --soft: #c4bfb2; --muted: #aaa59a; --accent: #caa95e; --accent-bg: #383120;
+    --ok: #75d892; --ok-bg: #1e3529; --error: #ff9b94; --error-bg: #361f21; --warn: #f6c765; --warn-bg: #383120;
+    --hover: #2a2c30; --shadow: rgba(0, 0, 0, .45); --backdrop: rgba(0, 0, 0, .5);
+    --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
-  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
-  header .stats { display: flex; gap: 18px; color: var(--muted); font-size: 13px; flex-wrap: wrap; }
-  header .stats b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
-  header .links { margin-left: auto; display: flex; gap: 12px; font-size: 13px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.5 "IBM Plex Sans", system-ui, sans-serif; }
+  [hidden] { display: none !important; }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   a { color: var(--accent); }
-  .layout { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 53px); }
-  aside { border-right: 1px solid var(--line); background: var(--panel); padding: 12px; }
-  aside h2, section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 4px 0 10px; font-weight: 600; }
-  .player { display: block; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid transparent; border-radius: 8px; background: none; color: inherit; cursor: pointer; font: inherit; }
-  .player:hover { background: var(--chip); }
-  .player.selected { border-color: var(--accent); background: var(--chip); }
-  .player small { display: block; color: var(--muted); font-size: 12px; font-family: var(--mono); }
-  .empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
-  main { padding: 16px 20px 40px; min-width: 0; }
-  nav.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; flex-wrap: wrap; }
-  nav.tabs button { border: none; background: none; color: var(--muted); padding: 8px 12px; cursor: pointer; font: inherit; border-bottom: 2px solid transparent; margin-bottom: -1px; }
-  nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
-  section { display: none; }
-  section.active { display: block; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
-  button.btn { border: 1px solid var(--line); background: var(--chip); color: var(--text); padding: 7px 12px; border-radius: 7px; cursor: pointer; font: inherit; }
-  button.btn:hover { border-color: var(--accent); }
-  button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
-  button.btn.danger { color: var(--danger); }
-  button.btn:disabled { opacity: .5; cursor: default; }
-  input, select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; font: inherit; min-width: 0; }
-  input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  input.num { width: 90px; font-variant-numeric: tabular-nums; }
-  input.grow { flex: 1; min-width: 160px; }
-  .skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 6px; }
-  .skill { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; }
-  .skill span { font-size: 13px; }
-  .skill input { width: 62px; padding: 4px 6px; text-align: right; }
-  .kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
-  .kv div { font-size: 12px; color: var(--muted); }
-  .kv b { display: block; font-size: 16px; color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
-  th { color: var(--muted); font-weight: 600; font-size: 12px; }
-  td.id { font-family: var(--mono); color: var(--muted); width: 70px; }
-  .scroll { max-height: 420px; overflow: auto; }
-  pre.out { font-family: var(--mono); font-size: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 10px; margin: 0; max-height: 360px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
-  pre.logs { max-height: 560px; }
-  .lvl-warn { color: #c58a00; } .lvl-error { color: var(--danger); }
-  .muted { color: var(--muted); font-size: 13px; }
-  #toast { position: fixed; right: 16px; bottom: 16px; max-width: min(520px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--ok); border-radius: 8px; padding: 10px 14px; box-shadow: 0 6px 24px rgba(0,0,0,.2); display: none; white-space: pre-wrap; font-size: 13px; }
-  #toast.error { border-left-color: var(--danger); }
-  @media (max-width: 760px) {
-    .layout { grid-template-columns: 1fr; }
-    aside { border-right: none; border-bottom: 1px solid var(--line); }
-    header .links { margin-left: 0; }
-    main { padding: 14px 16px 40px; }
+
+  .layout {
+    --server-bar-height: 58px;
+    display: grid; grid-template-columns: 213px minmax(0, 1fr);
+    grid-template-rows: var(--server-bar-height) minmax(0, 1fr);
+    height: 100vh; height: 100dvh;
   }
+  .server-bar {
+    grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 0 34px 0 26px; background: var(--bar); border-bottom: 1px solid var(--rule);
+  }
+  .status-line, .bar-actions { display: inline-flex; align-items: center; gap: 9px; white-space: nowrap; min-width: 0; }
+  .status-dot { display: inline-flex; align-items: center; gap: 7px; height: 26px; border-radius: 999px; padding: 0 10px; font-size: 12px; }
+  .status-dot::before { width: 7px; height: 7px; border-radius: 50%; background: currentColor; content: ""; }
+  .status-online { color: #6ce28c; background: #123d29; }
+  .status-starting { color: #e0c47d; background: #3b2d16; }
+  .status-offline { color: var(--muted); background: var(--panel-deep); }
+  .status-meta { margin-left: 4px; color: #9a958a; font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
+  .acting { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+  .acting select { min-width: 160px; }
+
+  .sidebar { padding: 28px 16px; background: var(--bar); border-right: 1px solid var(--rule); overflow: auto; }
+  .brand { margin: 2px 10px 28px; color: var(--muted); font-size: 14px; line-height: 1; letter-spacing: .12em; text-transform: uppercase; }
+  .tabs { display: grid; gap: 4px; }
+  .tabs button, .tool-link {
+    display: flex; align-items: center; gap: 20px; border: 0; border-radius: 5px; padding: 8px 10px; min-height: 0;
+    background: transparent; color: var(--soft); font-size: 14px; line-height: 20px; text-align: left; text-decoration: none; cursor: pointer;
+  }
+  .tabs button:hover, .tabs button[aria-selected="true"], .tool-link:hover { background: var(--hover); color: #fff; }
+  .tabs svg, .tool-link svg, .menu-toggle svg { width: 18px; height: 18px; flex: none; color: var(--muted); }
+  .tabs button[aria-selected="true"] svg { color: var(--accent); }
+  .tool-group { display: grid; gap: 4px; margin-top: 24px; }
+  .tool-group-label { margin: 0 10px 4px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+  .tool-link .external { width: 14px; height: 14px; margin-left: auto; }
+  .menu-toggle, .menu-backdrop { display: none; }
+
+  .workspace { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; padding: 16px 34px 0; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding-bottom: 14px; border-bottom: 1px solid var(--rule); }
+  h1 { font-size: 24px; line-height: 1.3; margin: 0; flex: 1 1 auto; font-weight: 600; }
+  h2 { font-size: 15px; font-weight: 600; margin: 0; }
+  main { overflow: auto; padding: 0 3px 24px; margin-inline: -3px; }
+  .footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 0; border-top: 1px solid var(--rule); min-height: 61px; }
+  .footer .status { flex: 1 1 auto; color: var(--muted); overflow-wrap: anywhere; white-space: pre-line; }
+  .footer .status.error { color: var(--error); }
+  .footer .status.ok { color: var(--ok); }
+
+  button {
+    background: var(--panel-deep); color: #eee9dd; border: 1px solid var(--line); border-radius: 5px;
+    min-height: 36px; padding: 0 12px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: var(--hover); }
+  button.primary { background: var(--accent-bg); border-color: var(--accent); color: #f6f2e8; }
+  button.primary:hover:not(:disabled) { background: #494029; }
+  button.danger:hover:not(:disabled) { background: #2a1d20; border-color: var(--error); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.small { min-height: 30px; padding: 0 10px; font-size: 12px; }
+  input[type="text"], input[type="search"], input[type="number"], select {
+    background: var(--field); color: var(--text); border: 1px solid var(--line); border-radius: 5px; min-height: 36px; padding: 0 10px; min-width: 0;
+  }
+  input::placeholder { color: var(--muted); }
+  input[type="number"] { width: 90px; appearance: textfield; font-variant-numeric: tabular-nums; }
+  input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { appearance: none; margin: 0; }
+  .search { flex: 0 1 320px; min-width: 0; }
+  .search input { width: 100%; }
+
+  .stack { display: grid; gap: 12px; margin-top: 20px; }
+  .group { border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; background: var(--panel); }
+  .group-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+  .group-head small { color: var(--muted); font-size: 13px; }
+  .group-body { padding: 14px 18px; }
+  .group-body.flush { padding: 0; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  .grid button { text-align: left; }
+  .muted { color: var(--muted); }
+  .empty { color: var(--muted); padding: 24px 0; text-align: center; }
+
+  .setting { display: flex; align-items: center; gap: 24px; padding: 14px 18px; transition: background .12s ease; cursor: pointer; }
+  .setting:hover { background: var(--panel-hover); }
+  .setting + .setting { border-top: 1px solid #232427; }
+  .setting > :first-child { flex: 1; min-width: 0; }
+  .setting strong { display: block; font-weight: 500; font-size: 14px; }
+  .setting small { color: var(--muted); font-size: 13px; }
+  .switch { position: relative; display: flex; align-items: center; }
+  .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+  .switch i { position: relative; width: 34px; height: 19px; border-radius: 999px; background: #3a3b40; transition: background .15s ease; }
+  .switch i::after { position: absolute; top: 3px; left: 3px; width: 13px; height: 13px; border-radius: 50%; background: #bdb8ad; content: ""; transition: transform .15s ease, background .15s ease; }
+  .switch input:checked + i { background: var(--accent); }
+  .switch input:checked + i::after { transform: translateX(15px); background: #17181b; }
+  .switch input:focus-visible + i { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1px; background: var(--rule); }
+  .stats div { background: var(--panel); padding: 12px 18px; color: var(--muted); font-size: 12px; }
+  .stats b { display: block; margin-top: 2px; color: var(--text); font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+  .skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+  .skill { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 4px 4px 12px; border: 1px solid #2a2b30; border-radius: 5px; background: var(--panel-deep); }
+  .skill span { color: var(--soft); }
+  .skill span em { color: var(--warn); font-style: normal; font-size: 12px; margin-left: 4px; }
+  .skill input[type="number"] { width: 64px; min-height: 30px; text-align: right; }
+
+  .loadouts { display: grid; gap: 1px; background: #232427; }
+  .loadout { display: flex; align-items: flex-start; gap: 18px; padding: 14px 18px; background: var(--panel); }
+  .loadout:hover { background: var(--panel-hover); }
+  .loadout > div { flex: 1; min-width: 0; }
+  .loadout strong { display: block; font-weight: 500; font-size: 14px; margin-bottom: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { padding: 1px 8px; border-radius: 999px; background: #25272b; color: var(--soft); font-size: 12px; }
+  .chip.worn { background: var(--accent-bg); color: #e4cf9a; }
+  .chip.bad { background: var(--error-bg); color: var(--error); }
+  .chip-toggle { border: 0; background: none; min-height: 0; padding: 1px 4px; color: var(--accent); font-size: 12px; text-decoration: underline; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { position: sticky; top: 0; z-index: 1; padding: 9px 18px; border-bottom: 1px solid var(--rule); background: #17181b; color: var(--muted); font-weight: 500; text-align: left; }
+  td { padding: 8px 18px; border-bottom: 1px solid #232427; color: var(--text); }
+  tbody tr:hover td { background: var(--panel-hover); }
+  td.num, th.num { text-align: right; font-family: var(--mono); }
+  td.id { width: 90px; font-family: var(--mono); color: var(--muted); }
+  td.act { width: 1%; white-space: nowrap; text-align: right; }
+  tr.clickable { cursor: pointer; }
+
+  pre.out { margin: 0; padding: 12px 18px; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; color: var(--soft); max-height: 340px; overflow: auto; }
+  pre.logs { max-height: 520px; }
+  .lvl-warn { color: var(--warn); } .lvl-error { color: var(--error); }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: minmax(0, 1fr); }
+    .server-bar { padding-inline: 16px; }
+    .workspace { padding-inline: 16px; }
+    .status-meta { display: none; }
+    .acting span { display: none; }
+    .acting select { min-width: 0; max-width: 46vw; }
+    .sidebar {
+      display: none; position: fixed; z-index: 12; inset: var(--server-bar-height) auto 0 0;
+      width: min(280px, calc(100vw - 48px)); padding: 20px 16px; box-shadow: 12px 0 30px var(--shadow);
+    }
+    .sidebar.open { display: block; }
+    .menu-backdrop { display: block; position: fixed; z-index: 11; inset: var(--server-bar-height) 0 0; width: 100%; border: 0; border-radius: 0; background: var(--backdrop); }
+    .menu-toggle { display: grid; place-items: center; width: 34px; padding: 0; margin-left: -4px; border: 0; background: transparent; }
+    h1 { font-size: 21px; }
+    .loadout { flex-direction: column; gap: 10px; }
+  }
+  @media (max-width: 600px) { .search { flex: 1 0 100%; } }
 </style>
 </head>
 <body>
-<header>
-  <h1>Test Control Panel</h1>
-  <div class="stats" id="stats"></div>
-  <div class="links" id="links"></div>
-</header>
 <div class="layout">
-  <aside>
-    <h2>Online players</h2>
-    <div id="players"><div class="empty">Loading…</div></div>
-  </aside>
-  <main>
-    <nav class="tabs" id="tabs">
-      <button data-tab="player" class="active">Player</button>
-      <button data-tab="teleport">Teleport</button>
-      <button data-tab="items">Items</button>
-      <button data-tab="npcs">NPCs</button>
-      <button data-tab="console">Console</button>
-      <button data-tab="server">Server</button>
+  <section class="server-bar" aria-label="Server status">
+    <div class="status-line" role="status">
+      <span id="server-status" class="status-dot status-starting">Connecting</span>
+      <span id="server-meta" class="status-meta"></span>
+    </div>
+    <div class="bar-actions">
+      <label class="acting"><span>Acting as</span>
+        <select id="player-select" aria-label="Player to act as"><option value="">No one online</option></select>
+      </label>
+    </div>
+  </section>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="brand">Test panel</div>
+    <div class="tabs" role="tablist" aria-label="Sections" aria-orientation="vertical" id="tabs">
+      <button type="button" role="tab" data-tab="player" aria-selected="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Player</button>
+      <button type="button" role="tab" data-tab="gear" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z"/></svg>Gear</button>
+      <button type="button" role="tab" data-tab="teleport" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>Teleport</button>
+      <button type="button" role="tab" data-tab="items" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.5 7.7 7.5 4.4 7.5-4.4M12 12.1V21"/></svg>Items</button>
+      <button type="button" role="tab" data-tab="npcs" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>NPCs</button>
+      <button type="button" role="tab" data-tab="console" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></svg>Console</button>
+      <button type="button" role="tab" data-tab="server" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>Server</button>
+    </div>
+    <nav class="tool-group" aria-label="Links" id="links">
+      <div class="tool-group-label">Links</div>
     </nav>
+  </aside>
+  <button type="button" id="menu-backdrop" class="menu-backdrop" aria-label="Close sections menu" tabindex="-1" hidden></button>
 
-    <section id="tab-player" class="active">
-      <div class="card">
-        <h2>Selected player</h2>
-        <div id="player-summary" class="muted">Select an online player on the left. Log in at the client first.</div>
-      </div>
-      <div class="card">
-        <h2>Quick actions</h2>
-        <div class="grid" id="quick"></div>
-      </div>
-      <div class="card">
-        <h2>Skills</h2>
-        <div class="row" style="margin-bottom:10px">
-          <span class="muted">Change a level and press Enter or leave the field. Applies to level and experience.</span>
-        </div>
-        <div class="skills" id="skills"></div>
-      </div>
-    </section>
+  <div class="workspace">
+    <header>
+      <button type="button" id="menu-toggle" class="menu-toggle" aria-label="Open sections menu" aria-controls="sidebar" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <h1 id="page-title">Player</h1>
+      <div class="search" id="search-wrap" hidden><input type="search" id="search" aria-label="Search"></div>
+    </header>
 
-    <section id="tab-teleport">
-      <div class="card">
-        <h2>Coordinates</h2>
-        <div class="row">
-          <input class="num" id="tx" placeholder="x" inputmode="numeric">
-          <input class="num" id="ty" placeholder="y" inputmode="numeric">
-          <input class="num" id="tz" placeholder="z" value="0" inputmode="numeric">
-          <button class="btn primary" id="tele-go">Teleport</button>
-          <button class="btn" id="tele-here">Use current position</button>
+    <main>
+      <!-- Player -->
+      <div data-panel="player" class="stack">
+        <div class="group">
+          <div class="group-head"><h2 id="player-name">No player selected</h2><small id="player-rank"></small></div>
+          <div class="stats" id="player-stats"></div>
+          <p class="empty" id="player-empty">Log in at the game client, then pick yourself under “Acting as”.</p>
+        </div>
+        <div class="group">
+          <div class="group-head"><h2>Quick actions</h2></div>
+          <div class="group-body"><div class="grid" id="quick"></div></div>
+        </div>
+        <div class="group">
+          <div class="group-head"><h2>Skills</h2><small>Enter a level and press Enter. Sets level and experience.</small></div>
+          <div class="group-body"><div class="skills" id="skills"></div></div>
         </div>
       </div>
-      <div class="card">
-        <h2>Locations</h2>
-        <div class="grid" id="presets"></div>
-      </div>
-      <div class="card">
-        <h2>Saved spots</h2>
-        <div class="row" style="margin-bottom:10px">
-          <input class="grow" id="spot-name" placeholder="Name for the selected player's current position">
-          <button class="btn" id="spot-save">Save spot</button>
-        </div>
-        <div class="grid" id="spots"></div>
-        <div class="muted" id="spots-empty">Saved in this browser only.</div>
-      </div>
-    </section>
 
-    <section id="tab-items">
-      <div class="card">
-        <h2>Spawn items</h2>
-        <div class="row" style="margin-bottom:10px">
-          <input class="grow" id="item-q" placeholder="Search by name or id (e.g. whip, 4151)">
-          <input class="num" id="item-amount" value="1" inputmode="numeric" aria-label="Amount">
+      <!-- Gear -->
+      <div data-panel="gear" class="stack" hidden>
+        <div class="group">
+          <label class="setting"><div><strong>Max stats first</strong><small>Runs ::master so every item's level requirement passes.</small></div>
+            <span class="switch"><input type="checkbox" id="opt-max" checked><i></i></span></label>
+          <label class="setting"><div><strong>Unlock quest requirements</strong><small>If an item needs a quest (Neitiznot helm, dragon scimitar, Desert Treasure II rings…), completes it with ::quest and tries again.</small></div>
+            <span class="switch"><input type="checkbox" id="opt-unlock" checked><i></i></span></label>
+          <label class="setting"><div><strong>Replace current gear</strong><small>Clears the inventory and takes off what's worn first. “Supplies only” sets keep worn gear.</small></div>
+            <span class="switch"><input type="checkbox" id="opt-replace" checked><i></i></span></label>
         </div>
-        <div class="scroll"><table><thead><tr><th>Id</th><th>Name</th><th></th></tr></thead><tbody id="item-results"></tbody></table></div>
+        <div id="loadout-groups" class="stack" style="margin-top:0"><p class="empty">Loading loadouts…</p></div>
       </div>
-    </section>
 
-    <section id="tab-npcs">
-      <div class="card">
-        <h2>Spawn NPCs</h2>
-        <div class="row" style="margin-bottom:10px">
-          <input class="grow" id="npc-q" placeholder="Search by name or id (e.g. goblin, vorkath)">
-          <input class="num" id="npc-amount" value="1" inputmode="numeric" aria-label="Amount">
-        </div>
-        <p class="muted" style="margin:0 0 8px">NPCs spawn around the selected player. Bosses with their own instance commands are in the Console list.</p>
-        <div class="scroll"><table><thead><tr><th>Id</th><th>Name</th><th>Combat</th><th></th></tr></thead><tbody id="npc-results"></tbody></table></div>
-      </div>
-    </section>
-
-    <section id="tab-console">
-      <div class="card">
-        <h2>Run a command as the selected player</h2>
-        <div class="row" style="margin-bottom:10px">
-          <input class="grow" id="cmd" placeholder="e.g. master, tele 3222 3218, item 4151, npc 2042" list="cmd-list" autocomplete="off">
-          <button class="btn primary" id="cmd-run">Run</button>
-        </div>
-        <datalist id="cmd-list"></datalist>
-        <pre class="out" id="cmd-out">Output appears here. Commands run with Developer rights for the one call; the player's own rank is kept.</pre>
-      </div>
-      <div class="card">
-        <h2>All commands</h2>
-        <input class="grow" id="cmd-filter" placeholder="Filter" style="width:100%;margin-bottom:8px">
-        <div class="scroll"><table><tbody id="cmd-table"></tbody></table></div>
-      </div>
-    </section>
-
-    <section id="tab-server">
-      <div class="card">
-        <h2>Server</h2>
-        <div class="kv" id="server-kv"></div>
-      </div>
-      <div class="card">
-        <h2>Broadcast</h2>
-        <div class="row">
-          <input class="grow" id="broadcast" maxlength="200" placeholder="Message to every online player">
-          <button class="btn primary" id="broadcast-send">Send</button>
-          <button class="btn" id="save-all">Save all players</button>
-        </div>
-        <p class="muted" style="margin:10px 0 0">Restart, world settings, plugins and ranks are on the <span id="admin-link">world config page</span>.</p>
-      </div>
-      <div class="card">
-        <div class="row" style="justify-content:space-between;margin-bottom:8px">
-          <h2 style="margin:0">Logs</h2>
-          <div class="row">
-            <input id="log-filter" placeholder="Filter">
-            <label class="muted"><input type="checkbox" id="log-follow" checked> Follow</label>
-            <button class="btn" id="log-clear">Clear view</button>
+      <!-- Teleport -->
+      <div data-panel="teleport" class="stack" hidden>
+        <div class="group">
+          <div class="group-head"><h2>Coordinates</h2><small id="tele-current"></small></div>
+          <div class="group-body row">
+            <input type="number" id="tx" placeholder="x" aria-label="x">
+            <input type="number" id="ty" placeholder="y" aria-label="y">
+            <input type="number" id="tz" placeholder="z" value="0" aria-label="z" style="width:64px">
+            <button class="primary" id="tele-go">Teleport</button>
+            <button id="tele-here">Use current position</button>
           </div>
         </div>
-        <pre class="out logs" id="logs"></pre>
+        <div id="preset-groups" class="stack" style="margin-top:0"></div>
+        <div class="group">
+          <div class="group-head"><h2>Saved spots</h2><small>Kept in this browser. Right-click a spot to remove it.</small></div>
+          <div class="group-body">
+            <div class="row" style="margin-bottom:10px">
+              <input type="text" id="spot-name" placeholder="Name for the current position" style="flex:1">
+              <button id="spot-save">Save spot</button>
+            </div>
+            <div class="grid" id="spots"></div>
+          </div>
+        </div>
       </div>
-    </section>
-  </main>
+
+      <!-- Items -->
+      <div data-panel="items" class="stack" hidden>
+        <div class="group">
+          <div class="group-head"><h2>Spawn items</h2>
+            <label class="row muted">Amount <input type="number" id="item-amount" value="1" min="1"></label></div>
+          <div class="group-body flush" style="max-height:62vh;overflow:auto">
+            <table><thead><tr><th>Id</th><th>Name</th><th></th></tr></thead><tbody id="item-results"></tbody></table>
+            <p class="empty" id="item-empty">Search by name or id above (whip, 4151, dragon).</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- NPCs -->
+      <div data-panel="npcs" class="stack" hidden>
+        <div class="group">
+          <div class="group-head"><h2>Spawn NPCs</h2>
+            <label class="row muted">Amount <input type="number" id="npc-amount" value="1" min="1"></label></div>
+          <div class="group-body flush" style="max-height:62vh;overflow:auto">
+            <table><thead><tr><th>Id</th><th>Name</th><th class="num">Combat</th><th></th></tr></thead><tbody id="npc-results"></tbody></table>
+            <p class="empty" id="npc-empty">Search by name or id above. NPCs appear around the player; bosses with their own setup commands are in Console.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Console -->
+      <div data-panel="console" class="stack" hidden>
+        <div class="group">
+          <div class="group-head"><h2>Run a command</h2><small>Developer rights for this one call; the player's rank is kept.</small></div>
+          <div class="group-body row">
+            <input type="text" id="cmd" placeholder="master · tele 3222 3218 · item 4151 · npc 2042" list="cmd-list" autocomplete="off" style="flex:1;font-family:var(--mono)">
+            <button class="primary" id="cmd-run">Run</button>
+          </div>
+          <datalist id="cmd-list"></datalist>
+          <pre class="out" id="cmd-out" style="border-top:1px solid var(--rule)">Output appears here. ↑/↓ for history.</pre>
+        </div>
+        <div class="group">
+          <div class="group-head"><h2>All commands</h2><small id="cmd-count"></small></div>
+          <div class="group-body flush" style="max-height:52vh;overflow:auto"><table><tbody id="cmd-table"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- Server -->
+      <div data-panel="server" class="stack" hidden>
+        <div class="group"><div class="stats" id="server-stats"></div></div>
+        <div class="group">
+          <div class="group-head"><h2>Broadcast</h2></div>
+          <div class="group-body row">
+            <input type="text" id="broadcast" maxlength="200" placeholder="Message to every online player" style="flex:1">
+            <button class="primary" id="broadcast-send">Send</button>
+            <button id="save-all">Save all players</button>
+          </div>
+        </div>
+        <div class="group">
+          <div class="group-head"><h2>Logs</h2>
+            <div class="row"><input type="search" id="log-filter" placeholder="Filter logs">
+              <label class="row muted"><span class="switch"><input type="checkbox" id="log-follow" checked><i></i></span> Follow</label>
+              <button class="small" id="log-clear">Clear view</button></div></div>
+          <pre class="out logs" id="logs"></pre>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <span class="status" id="footer-status" aria-live="polite">Restart, world settings, plugins and ranks are on the world config page.</span>
+    </footer>
+  </div>
 </div>
-<div id="toast" role="status"></div>
 
 <script>
 (() => {
@@ -217,41 +348,42 @@
   const $ = (id) => document.getElementById(id);
   const el = (tag, props = {}, children = []) => {
     const node = Object.assign(document.createElement(tag), props);
-    for (const child of [].concat(children)) node.append(child);
+    for (const child of [].concat(children)) if (child !== null && child !== undefined && child !== false) node.append(child);
     return node;
   };
+  const EXTERNAL_ICON = '<svg class="external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"/></svg>';
 
-  const PRESETS = [
-    ["Lumbridge", 3222, 3218], ["Varrock", 3213, 3424], ["Grand Exchange", 3164, 3487],
-    ["Edgeville", 3087, 3496], ["Falador", 2964, 3378], ["Draynor Village", 3093, 3244],
-    ["Al Kharid", 3293, 3174], ["Camelot", 2757, 3477], ["Catherby", 2808, 3436],
-    ["Seers' Village", 2726, 3485], ["Ardougne", 2662, 3305], ["Yanille", 2606, 3093],
-    ["Canifis", 3493, 3488], ["Port Sarim", 3023, 3208], ["Rimmington", 2957, 3214],
-    ["Burthorpe", 2898, 3544], ["Taverley", 2895, 3443], ["Shilo Village", 2852, 2955],
-    ["Wilderness ditch", 3087, 3523], ["Mage Bank", 2538, 4716], ["Duel Arena / PvP Arena", 3365, 3266],
-    ["Barrows", 3565, 3289], ["Castle Wars", 2442, 3090],
-  ];
+  const PRESETS = {
+    "Cities": [
+      ["Lumbridge", 3222, 3218], ["Varrock", 3213, 3424], ["Grand Exchange", 3164, 3487], ["Edgeville", 3087, 3496],
+      ["Falador", 2964, 3378], ["Draynor Village", 3093, 3244], ["Al Kharid", 3293, 3174], ["Port Sarim", 3023, 3208],
+      ["Camelot", 2757, 3477], ["Seers' Village", 2726, 3485], ["Catherby", 2808, 3436], ["Ardougne", 2662, 3305],
+      ["Yanille", 2606, 3093], ["Burthorpe", 2898, 3544], ["Taverley", 2895, 3443], ["Canifis", 3493, 3488],
+      ["Shilo Village", 2852, 2955], ["Rimmington", 2957, 3214],
+    ],
+    "PvP & minigames": [
+      ["Wilderness ditch", 3087, 3523], ["Mage Bank", 2538, 4716], ["PvP Arena", 3365, 3266],
+      ["Castle Wars", 2442, 3090], ["Barrows", 3565, 3289],
+    ],
+  };
   const QUICK = [
-    ["Max stats", "master"], ["Open bank", "bank"], ["Rune set", "runes"],
-    ["Spec 100%", "spec 100"], ["Infinite HP", "infhp"], ["Infinite run", "infrun"],
-    ["Mortal (take damage)", "mortal"], ["Noclip", "noclip"], ["Up a floor", "up"],
-    ["Down a floor", "down"], ["Show coords", "coords"], ["Save", "save"],
+    ["Max stats", "master"], ["Open bank", "bank"], ["Rune set", "runes"], ["Spec 100%", "spec 100"],
+    ["Infinite HP", "infhp"], ["Infinite run", "infrun"], ["Mortal (take damage)", "mortal"], ["Noclip", "noclip"],
+    ["Up a floor", "up"], ["Down a floor", "down"], ["Show coords", "coords"], ["Save", "save"],
     ["Clear inventory", "clearinv", true], ["Reset stats", "reset", true],
   ];
+  const TITLES = { player: "Player", gear: "Gear", teleport: "Teleport", items: "Items", npcs: "NPCs", console: "Console", server: "Server" };
+  const SEARCH = { items: "Search items by name or id", npcs: "Search NPCs by name or id", console: "Filter commands" };
 
-  let state = null;
-  let selected = null;
-  let detail = null;
-  let logAfter = 0;
-  let commands = [];
+  let state = null, selected = "", detail = null, tab = "player", commands = [], logAfter = 0;
+  const logLines = [];
+  const searchText = { items: "", npcs: "", console: "" };
 
-  function toast(message, isError = false) {
-    const t = $("toast");
-    t.textContent = message;
-    t.className = isError ? "error" : "";
-    t.style.display = "block";
-    clearTimeout(toast.timer);
-    toast.timer = setTimeout(() => (t.style.display = "none"), isError ? 7000 : 3500);
+  // ---- Feedback (footer status, as on the world config page) ----
+  function status(message, kind = "") {
+    const s = $("footer-status");
+    s.textContent = message;
+    s.className = "status" + (kind ? ` ${kind}` : "");
   }
 
   async function api(path, body) {
@@ -264,142 +396,198 @@
   }
 
   function requirePlayer() {
-    if (!selected) { toast("Select an online player first.", true); return false; }
-    return true;
+    if (selected) return true;
+    status("Pick a player under “Acting as” first.", "error");
+    return false;
   }
 
-  async function run(text, { quiet = false } = {}) {
+  async function run(text) {
     if (!requirePlayer()) return null;
     try {
       const result = await api("/api/command", { player: selected, text });
-      const lines = result.messages.length ? result.messages.join("\n") : "(no chat output)";
+      const lines = result.messages.length ? result.messages.join("\n") : "Done.";
       $("cmd-out").textContent = `> ::${text}\n${lines}`;
+      status(`::${text} — ${lines.split("\n").slice(-2).join(" · ")}`, result.handled ? "ok" : "error");
       if (result.player) { detail = result.player; renderDetail(); }
-      if (!quiet) toast(`::${text}\n${lines}`, !result.handled);
       return result;
     } catch (error) {
-      toast(error.message, true);
+      status(error.message, "error");
       return null;
     }
   }
 
-  // ---- Header / players ----
-  function formatUptime(s) {
-    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
-    return h ? `${h}h ${m}m` : `${m}m ${s % 60}s`;
-  }
+  // ---- State ----
+  const formatUptime = (s) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h}h ${m}m` : `${m}m ${s % 60}s`; };
+  const ms = (v, d = 1) => (typeof v === "number" ? `${v.toFixed(d)} ms` : "–");
 
   function renderState() {
-    const perf = state.perf || {};
-    $("stats").replaceChildren(
-      ...[["Players", state.players.length], ["Bots", state.botCount], ["NPCs", state.npcCount],
-          ["Tick", perf.ticks ? `${perf.avgTickMs.toFixed(1)} ms` : "–"], ["Heap", `${state.memory.heapUsedMb} MB`],
-          ["Up", formatUptime(state.uptimeSeconds)]]
-        .map(([k, v]) => el("span", {}, [`${k} `, el("b", { textContent: String(v) })]))
-    );
+    const perf = state.perf && state.perf.ticks ? state.perf : null;
+    const dot = $("server-status");
+    dot.textContent = state.shuttingDown ? "Stopping" : "Online";
+    dot.className = "status-dot " + (state.shuttingDown ? "status-starting" : "status-online");
+    $("server-meta").textContent = `${state.players.length} player${state.players.length === 1 ? "" : "s"} · ${state.botCount} bots · ${state.npcCount} NPCs · tick ${perf ? ms(perf.avgTickMs) : "–"}`;
+
+    const select = $("player-select");
+    const names = state.players.map((p) => p.username);
+    if (!selected && names.length) selected = names[0];
+    if (selected && !names.includes(selected)) { selected = names[0] || ""; detail = null; }
+    const current = [...select.options].map((o) => o.value).join("|");
+    if (current !== (names.length ? names.join("|") : "")) {
+      select.replaceChildren(...(names.length ? names.map((n) => el("option", { value: n, textContent: n })) : [el("option", { value: "", textContent: "No one online" })]));
+    }
+    select.value = selected;
+
+    $("server-stats").replaceChildren(...[
+      ["Uptime", formatUptime(state.uptimeSeconds)], ["Players", state.players.length], ["Bots", state.botCount], ["NPCs", state.npcCount],
+      ["Avg tick", perf ? ms(perf.avgTickMs, 2) : "–"], ["Max tick", perf ? ms(perf.maxTickMs) : "–"], ["Avg drift", perf ? ms(perf.avgDriftMs) : "–"],
+      ["Heap", `${state.memory.heapUsedMb} MB`], ["RSS", `${state.memory.rssMb} MB`], ["Profile", state.profile || "main"],
+    ].map(([k, v]) => el("div", {}, [k, el("b", { textContent: String(v) })])));
+
+    renderLinks();
+  }
+
+  let linksRendered = false;
+  function renderLinks() {
+    if (linksRendered) return;
+    linksRendered = true;
     const links = [];
-    if (state.clientPort) links.push(el("a", { href: `http://localhost:${state.clientPort}/`, target: "_blank", textContent: "Game client" }));
-    if (state.worldAdminPort) {
-      const href = `http://localhost:${state.worldAdminPort}/`;
-      links.push(el("a", { href, target: "_blank", textContent: "World config" }));
-      $("admin-link").replaceChildren(el("a", { href, target: "_blank", textContent: "world config page" }));
+    if (state.clientPort) links.push(["Game client", `http://localhost:${state.clientPort}/`]);
+    if (state.worldAdminPort) links.push(["World config", `http://localhost:${state.worldAdminPort}/`]);
+    for (const [label, href] of links) {
+      const a = el("a", { className: "tool-link", href, target: "_blank", rel: "noopener noreferrer" }, [el("span", { textContent: label })]);
+      a.insertAdjacentHTML("beforeend", EXTERNAL_ICON);
+      $("links").append(a);
     }
-    $("links").replaceChildren(...links);
-
-    const list = $("players");
-    if (!state.players.length) {
-      list.replaceChildren(el("div", { className: "empty", textContent: "Nobody is online. Log in at the game client." }));
-    } else {
-      list.replaceChildren(...state.players.map((p) => {
-        const button = el("button", { className: "player" + (p.username === selected ? " selected" : "") }, [
-          `${p.username} `, el("small", { textContent: `${p.rightsName} · cb ${p.combat} · ${p.x}, ${p.y}, ${p.z}` }),
-        ]);
-        button.onclick = () => select(p.username);
-        return button;
-      }));
-    }
-    if (!selected && state.players.length) select(state.players[0].username);
-    if (selected && !state.players.some((p) => p.username === selected)) { selected = null; detail = null; renderDetail(); }
-
-    const kv = [
-      ["Uptime", formatUptime(state.uptimeSeconds)], ["Profile", state.profile || "main"],
-      ["Avg tick", perf.ticks ? `${perf.avgTickMs.toFixed(2)} ms` : "–"], ["Max tick", perf.ticks ? `${perf.maxTickMs.toFixed(1)} ms` : "–"],
-      ["Avg drift", perf.ticks ? `${perf.avgDriftMs.toFixed(1)} ms` : "–"], ["RSS", `${state.memory.rssMb} MB`],
-      ["Heap used", `${state.memory.heapUsedMb} MB`], ["Shutting down", state.shuttingDown ? "yes" : "no"],
-    ];
-    $("server-kv").replaceChildren(...kv.map(([k, v]) => el("div", {}, [k, el("b", { textContent: v })])));
+    $("links").hidden = links.length === 0;
   }
 
   async function refreshState() {
     try {
       state = await api("/api/state");
       renderState();
-      if (selected && document.visibilityState === "visible" && !document.activeElement?.closest?.(".skill")) await loadDetail();
+      if (document.visibilityState === "visible") await loadDetail();
     } catch (error) {
-      $("players").replaceChildren(el("div", { className: "empty", textContent: error.message }));
+      const dot = $("server-status");
+      dot.textContent = "Offline";
+      dot.className = "status-dot status-offline";
+      $("server-meta").textContent = error.message;
     }
-  }
-
-  async function select(name) {
-    selected = name;
-    renderState();
-    await loadDetail();
   }
 
   async function loadDetail() {
-    if (!selected) return;
-    try {
-      detail = await api(`/api/player?name=${encodeURIComponent(selected)}`);
-      renderDetail();
-    } catch (error) { /* logged out between polls */ }
+    if (!selected) { detail = null; renderDetail(); return; }
+    try { detail = await api(`/api/player?name=${encodeURIComponent(selected)}`); }
+    catch { detail = null; }
+    renderDetail();
   }
 
   function renderDetail() {
-    const summary = $("player-summary");
-    if (!detail) {
-      summary.className = "muted";
-      summary.textContent = "Select an online player on the left. Log in at the client first.";
-      $("skills").replaceChildren();
-      return;
-    }
-    summary.className = "kv";
-    summary.replaceChildren(...[
-      ["Name", detail.username], ["Rank", detail.rightsName], ["Position", `${detail.x}, ${detail.y}, ${detail.z}`],
-      ["Hitpoints", detail.hitpoints], ["Run energy", `${detail.runEnergy}%`], ["Combat", detail.combat], ["Total", detail.total],
+    $("player-empty").hidden = Boolean(detail);
+    $("player-stats").hidden = !detail;
+    $("player-name").textContent = detail ? detail.username : "No player selected";
+    $("player-rank").textContent = detail ? detail.rightsName : "";
+    $("tele-current").textContent = detail ? `Now at ${detail.x}, ${detail.y}, ${detail.z}` : "";
+    if (!detail) { $("skills").replaceChildren(); return; }
+    $("player-stats").replaceChildren(...[
+      ["Position", `${detail.x}, ${detail.y}, ${detail.z}`], ["Hitpoints", detail.hitpoints], ["Run energy", `${detail.runEnergy}%`],
+      ["Combat", detail.combat], ["Total level", detail.total],
     ].map(([k, v]) => el("div", {}, [k, el("b", { textContent: String(v) })])));
 
-    const skills = $("skills");
-    if (document.activeElement?.closest?.(".skill")) return;
-    skills.replaceChildren(...detail.skills.map((s) => {
-      const input = el("input", { type: "number", min: s.name === "Hitpoints" ? 10 : 1, max: 99, value: s.maxLevel, title: `${s.experience.toLocaleString()} xp; currently ${s.level}` });
+    if (document.activeElement && document.activeElement.closest(".skill")) return;
+    $("skills").replaceChildren(...detail.skills.map((s) => {
+      const input = el("input", { type: "number", min: s.name === "Hitpoints" ? 10 : 1, max: 99, value: s.maxLevel, title: `${s.experience.toLocaleString()} xp`, ariaLabel: `${s.name} level` });
       const apply = () => {
         const level = Number(input.value);
-        if (!Number.isInteger(level) || level === s.maxLevel) return;
-        run(`setlevel ${s.name.toLowerCase()} ${level}`);
+        if (Number.isInteger(level) && level !== s.maxLevel) run(`setlevel ${s.name.toLowerCase()} ${level}`);
       };
       input.addEventListener("change", apply);
       input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
-      return el("label", { className: "skill" }, [el("span", { textContent: s.level !== s.maxLevel ? `${s.name} (${s.level})` : s.name }), input]);
+      return el("label", { className: "skill" }, [el("span", {}, [s.name, s.level !== s.maxLevel ? el("em", { textContent: `(${s.level})` }) : null]), input]);
     }));
   }
 
+  $("player-select").addEventListener("change", (e) => { selected = e.target.value; loadDetail(); });
+
   // ---- Quick actions ----
-  $("quick").replaceChildren(...QUICK.map(([label, cmd, confirmIt]) => {
-    const b = el("button", { className: "btn" + (confirmIt ? " danger" : ""), textContent: label, title: `::${cmd}` });
-    b.onclick = () => { if (!confirmIt || confirm(`Run ::${cmd} on ${selected}?`)) run(cmd); };
+  $("quick").replaceChildren(...QUICK.map(([label, cmd, risky]) => {
+    const b = el("button", { className: risky ? "danger" : "", textContent: label, title: `::${cmd}` });
+    b.onclick = () => { if (!risky || confirm(`Run ::${cmd} on ${selected || "the player"}?`)) run(cmd); };
     return b;
   }));
 
+  // ---- Gear ----
+  function chip(item, worn) {
+    const label = item.amount > 1 ? `${item.name} ×${item.amount.toLocaleString()}` : item.name;
+    return el("span", { className: "chip" + (item.id === null ? " bad" : worn ? " worn" : ""), textContent: label, title: item.id === null ? `${item.constant} is not in ItemIdentifiers` : `${item.constant} (${item.id})` });
+  }
+  function collapseInventory(items) {
+    const counts = new Map();
+    for (const item of items) {
+      const key = item.constant;
+      const entry = counts.get(key) || { ...item, amount: 0, count: 0 };
+      entry.amount += item.amount; entry.count += 1;
+      counts.set(key, entry);
+    }
+    return [...counts.values()].map((e) => ({ ...e, amount: e.count > 1 ? e.count : e.amount }));
+  }
+
+  async function equipLoadout(loadout, button) {
+    if (!requirePlayer()) return;
+    const replace = $("opt-replace").checked;
+    if (replace && !loadout.keepWorn && !confirm(`Replace ${selected}'s inventory and worn items with “${loadout.name}”?`)) return;
+    button.disabled = true;
+    try {
+      const result = await api("/api/loadout", { player: selected, id: loadout.id, maxStats: $("opt-max").checked, replace, unlock: $("opt-unlock").checked });
+      const problems = [];
+      const unlocked = result.completedQuests.length ? ` Completed quests: ${result.completedQuests.join(", ")}.` : "";
+      if (result.notWorn.length) problems.push(`Couldn't wear: ${result.notWorn.join(", ")}`);
+      if (result.notAdded.length) problems.push(`Not added (no room or unknown): ${result.notAdded.join(", ")}`);
+      status(problems.length ? `${result.loadout}: ${problems.join(". ")}.${unlocked}` : `${result.loadout} equipped on ${selected}.${unlocked}`, problems.length ? "error" : "ok");
+      if (result.player) { detail = result.player; renderDetail(); }
+    } catch (error) {
+      status(error.message, "error");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function renderLoadouts(loadouts) {
+    const groups = new Map();
+    for (const l of loadouts) { if (!groups.has(l.group)) groups.set(l.group, []); groups.get(l.group).push(l); }
+    $("loadout-groups").replaceChildren(...[...groups].map(([group, list]) => el("div", { className: "group" }, [
+      el("div", { className: "group-head" }, [el("h2", { textContent: group }), el("small", { textContent: `${list.length} set${list.length === 1 ? "" : "s"}` })]),
+      el("div", { className: "loadouts" }, list.map((loadout) => {
+        const button = el("button", { className: "primary", textContent: loadout.keepWorn ? "Add" : "Equip" });
+        button.onclick = () => equipLoadout(loadout, button);
+        const inventory = collapseInventory(loadout.inventory);
+        const invChips = el("div", { className: "chips", hidden: true }, inventory.map((i) => chip(i, false)));
+        const toggle = el("button", { className: "chip-toggle", textContent: `+ ${loadout.inventory.length} inventory item${loadout.inventory.length === 1 ? "" : "s"}` });
+        toggle.onclick = () => { invChips.hidden = !invChips.hidden; toggle.textContent = invChips.hidden ? `+ ${loadout.inventory.length} inventory items` : "Hide inventory"; };
+        const worn = loadout.equip.length ? el("div", { className: "chips" }, loadout.equip.map((i) => chip(i, true))) : null;
+        return el("div", { className: "loadout" }, [
+          el("div", {}, [el("strong", { textContent: loadout.name }), worn, loadout.inventory.length ? el("div", { style: "margin-top:6px" }, [toggle]) : null, invChips]),
+          button,
+        ]);
+      })),
+    ])));
+  }
+  api("/api/loadouts").then(({ loadouts }) => renderLoadouts(loadouts)).catch((error) => {
+    $("loadout-groups").replaceChildren(el("p", { className: "empty", textContent: error.message }));
+  });
+
   // ---- Teleport ----
-  function teleport(x, y, z = 0) { return run(`tele ${x} ${y} ${z}`); }
-  $("presets").replaceChildren(...PRESETS.map(([name, x, y, z = 0]) => {
-    const b = el("button", { className: "btn", textContent: name, title: `${x}, ${y}, ${z}` });
-    b.onclick = () => teleport(x, y, z);
-    return b;
-  }));
+  const teleport = (x, y, z = 0) => run(`tele ${x} ${y} ${z}`);
+  $("preset-groups").replaceChildren(...Object.entries(PRESETS).map(([group, list]) => el("div", { className: "group" }, [
+    el("div", { className: "group-head" }, [el("h2", { textContent: group })]),
+    el("div", { className: "group-body" }, [el("div", { className: "grid" }, list.map(([name, x, y, z = 0]) => {
+      const b = el("button", { textContent: name, title: `${x}, ${y}, ${z}` });
+      b.onclick = () => teleport(x, y, z);
+      return b;
+    }))]),
+  ])));
   $("tele-go").onclick = () => {
     const [x, y, z] = ["tx", "ty", "tz"].map((id) => Number($(id).value || 0));
-    if (![x, y, z].every(Number.isInteger) || !$("tx").value || !$("ty").value) return toast("Enter whole-number x and y.", true);
+    if (!$("tx").value || !$("ty").value || ![x, y, z].every(Number.isInteger)) return status("Enter whole-number x and y.", "error");
     teleport(x, y, z);
   };
   $("tele-here").onclick = () => {
@@ -408,61 +596,63 @@
   };
 
   const SPOTS_KEY = "test-panel:spots";
-  function loadSpots() { try { return JSON.parse(localStorage.getItem(SPOTS_KEY)) || []; } catch { return []; } }
-  function saveSpots(spots) { try { localStorage.setItem(SPOTS_KEY, JSON.stringify(spots)); } catch {} }
+  const loadSpots = () => { try { return JSON.parse(localStorage.getItem(SPOTS_KEY)) || []; } catch { return []; } };
+  const saveSpots = (spots) => { try { localStorage.setItem(SPOTS_KEY, JSON.stringify(spots)); } catch {} };
   function renderSpots() {
     const spots = loadSpots();
-    $("spots-empty").style.display = spots.length ? "none" : "block";
-    $("spots").replaceChildren(...spots.map((spot, i) => {
-      const go = el("button", { className: "btn", textContent: spot.name, title: `${spot.x}, ${spot.y}, ${spot.z} (right-click to remove)` });
-      go.onclick = () => teleport(spot.x, spot.y, spot.z);
-      go.oncontextmenu = (e) => { e.preventDefault(); if (confirm(`Remove "${spot.name}"?`)) { spots.splice(i, 1); saveSpots(spots); renderSpots(); } };
-      return go;
-    }));
+    $("spots").replaceChildren(...(spots.length ? spots.map((spot, i) => {
+      const b = el("button", { textContent: spot.name, title: `${spot.x}, ${spot.y}, ${spot.z}` });
+      b.onclick = () => teleport(spot.x, spot.y, spot.z);
+      b.oncontextmenu = (e) => { e.preventDefault(); if (confirm(`Remove “${spot.name}”?`)) { spots.splice(i, 1); saveSpots(spots); renderSpots(); } };
+      return b;
+    }) : [el("span", { className: "muted", textContent: "No saved spots yet." })]));
   }
   $("spot-save").onclick = () => {
     if (!detail) return requirePlayer();
-    const name = $("spot-name").value.trim() || `${detail.x}, ${detail.y}, ${detail.z}`;
     const spots = loadSpots();
-    spots.push({ name, x: detail.x, y: detail.y, z: detail.z });
+    spots.push({ name: $("spot-name").value.trim() || `${detail.x}, ${detail.y}, ${detail.z}`, x: detail.x, y: detail.y, z: detail.z });
     saveSpots(spots);
     $("spot-name").value = "";
     renderSpots();
   };
   renderSpots();
 
-  // ---- Item / NPC search ----
-  function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
-  function amountOf(id) { const n = Number($(id).value); return Number.isInteger(n) && n > 0 ? n : 1; }
+  // ---- Items / NPCs ----
+  const debounce = (fn, wait) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), wait); }; };
+  const amountOf = (id) => { const n = Number($(id).value); return Number.isInteger(n) && n > 0 ? n : 1; };
 
-  const searchItems = debounce(async () => {
-    const q = $("item-q").value.trim();
+  async function searchItems() {
+    const q = searchText.items.trim();
+    $("item-empty").hidden = Boolean(q);
     if (!q) return $("item-results").replaceChildren();
     try {
       const { results } = await api(`/api/items?q=${encodeURIComponent(q)}`);
+      $("item-empty").hidden = results.length > 0;
+      if (!results.length) $("item-empty").textContent = "No items match.";
       $("item-results").replaceChildren(...results.map((item) => {
-        const give = el("button", { className: "btn", textContent: "Give" });
+        const give = el("button", { className: "small", textContent: "Give" });
         give.onclick = () => run(`item ${item.id} ${amountOf("item-amount")}`);
-        const tags = [item.noted && "noted", item.stackable && "stackable"].filter(Boolean).join(", ");
-        return el("tr", {}, [el("td", { className: "id", textContent: item.id }), el("td", {}, [item.name, tags ? el("span", { className: "muted", textContent: `  ${tags}` }) : ""]), el("td", {}, give)]);
+        const tags = [item.noted && "noted", item.stackable && !item.noted && "stackable"].filter(Boolean).join(" · ");
+        return el("tr", {}, [el("td", { className: "id", textContent: item.id }), el("td", {}, [item.name, tags ? el("span", { className: "muted", textContent: `  ${tags}` }) : null]), el("td", { className: "act" }, give)]);
       }));
-    } catch (error) { toast(error.message, true); }
-  }, 200);
-  $("item-q").addEventListener("input", searchItems);
+    } catch (error) { status(error.message, "error"); }
+  }
 
-  const searchNpcs = debounce(async () => {
-    const q = $("npc-q").value.trim();
+  async function searchNpcs() {
+    const q = searchText.npcs.trim();
+    $("npc-empty").hidden = Boolean(q);
     if (!q) return $("npc-results").replaceChildren();
     try {
       const { results } = await api(`/api/npcs?q=${encodeURIComponent(q)}`);
+      $("npc-empty").hidden = results.length > 0;
+      if (!results.length) $("npc-empty").textContent = "No NPCs match.";
       $("npc-results").replaceChildren(...results.map((npc) => {
-        const spawn = el("button", { className: "btn", textContent: "Spawn" });
+        const spawn = el("button", { className: "small", textContent: "Spawn" });
         spawn.onclick = () => run(`npc ${npc.id} ${amountOf("npc-amount")}`);
-        return el("tr", {}, [el("td", { className: "id", textContent: npc.id }), el("td", { textContent: npc.name }), el("td", { textContent: npc.combat || "" }), el("td", {}, spawn)]);
+        return el("tr", {}, [el("td", { className: "id", textContent: npc.id }), el("td", { textContent: npc.name }), el("td", { className: "num", textContent: npc.combat || "" }), el("td", { className: "act" }, spawn)]);
       }));
-    } catch (error) { toast(error.message, true); }
-  }, 200);
-  $("npc-q").addEventListener("input", searchNpcs);
+    } catch (error) { status(error.message, "error"); }
+  }
 
   // ---- Console ----
   const history = [];
@@ -472,24 +662,24 @@
     if (!text) return;
     history.unshift(text); historyIndex = -1;
     $("cmd").value = "";
-    await run(text, { quiet: true });
+    await run(text);
   }
   $("cmd-run").onclick = runConsole;
   $("cmd").addEventListener("keydown", (e) => {
     if (e.key === "Enter") runConsole();
-    if (e.key === "ArrowUp" && history.length) { historyIndex = Math.min(historyIndex + 1, history.length - 1); $("cmd").value = history[historyIndex]; e.preventDefault(); }
-    if (e.key === "ArrowDown") { historyIndex = Math.max(historyIndex - 1, -1); $("cmd").value = historyIndex >= 0 ? history[historyIndex] : ""; e.preventDefault(); }
+    else if (e.key === "ArrowUp" && history.length) { historyIndex = Math.min(historyIndex + 1, history.length - 1); $("cmd").value = history[historyIndex]; e.preventDefault(); }
+    else if (e.key === "ArrowDown") { historyIndex = Math.max(historyIndex - 1, -1); $("cmd").value = historyIndex >= 0 ? history[historyIndex] : ""; e.preventDefault(); }
   });
   function renderCommands() {
-    const filter = $("cmd-filter").value.trim().toLowerCase();
+    const filter = searchText.console.trim().toLowerCase();
     const shown = commands.filter((c) => !filter || c.command.includes(filter) || c.description.toLowerCase().includes(filter));
+    $("cmd-count").textContent = filter ? `${shown.length} of ${commands.length}` : `${commands.length} commands`;
     $("cmd-table").replaceChildren(...shown.map((c) => {
-      const row = el("tr", { style: "cursor:pointer", title: "Click to put in the command box" }, [el("td", { className: "id", textContent: `::${c.command}`, style: "width:180px" }), el("td", { textContent: c.description })]);
-      row.onclick = () => { $("cmd").value = c.command + " "; $("cmd").focus(); };
+      const row = el("tr", { className: "clickable", title: "Put in the command box" }, [el("td", { className: "id", textContent: `::${c.command}`, style: "width:200px" }), el("td", { textContent: c.description, className: c.description ? "" : "muted" })]);
+      row.onclick = () => { $("cmd").value = `${c.command} `; $("cmd").focus(); };
       return row;
     }));
   }
-  $("cmd-filter").addEventListener("input", renderCommands);
   api("/api/commands").then(({ commands: list }) => {
     commands = list;
     $("cmd-list").replaceChildren(...list.map((c) => el("option", { value: c.command, label: c.description })));
@@ -500,15 +690,13 @@
   $("broadcast-send").onclick = async () => {
     const text = $("broadcast").value.trim();
     if (!text) return;
-    try { await api("/api/broadcast", { text }); $("broadcast").value = ""; toast("Broadcast sent."); }
-    catch (error) { toast(error.message, true); }
+    try { await api("/api/broadcast", { text }); $("broadcast").value = ""; status("Broadcast sent.", "ok"); }
+    catch (error) { status(error.message, "error"); }
   };
   $("save-all").onclick = async () => {
-    try { const { saved } = await api("/api/save-all", {}); toast(`Saved ${saved} player(s).`); }
-    catch (error) { toast(error.message, true); }
+    try { const { saved } = await api("/api/save-all", {}); status(`Saved ${saved} player${saved === 1 ? "" : "s"}.`, "ok"); }
+    catch (error) { status(error.message, "error"); }
   };
-
-  const logLines = [];
   function renderLogs() {
     const filter = $("log-filter").value.trim().toLowerCase();
     const pre = $("logs");
@@ -517,30 +705,56 @@
     if ($("log-follow").checked) pre.scrollTop = pre.scrollHeight;
   }
   async function pollLogs() {
-    if (!$("tab-server").classList.contains("active")) return;
+    if (tab !== "server") return;
     try {
       const { lines } = await api(`/api/logs?after=${logAfter}`);
-      if (lines.length) {
-        logAfter = lines[lines.length - 1].id;
-        logLines.push(...lines);
-        if (logLines.length > 2000) logLines.splice(0, logLines.length - 2000);
-        renderLogs();
-      }
+      if (!lines.length) return;
+      logAfter = lines[lines.length - 1].id;
+      logLines.push(...lines);
+      if (logLines.length > 2000) logLines.splice(0, logLines.length - 2000);
+      renderLogs();
     } catch {}
   }
   $("log-filter").addEventListener("input", renderLogs);
   $("log-clear").onclick = () => { logLines.length = 0; renderLogs(); };
 
-  // ---- Tabs ----
+  // ---- Tabs, search box and narrow-screen menu ----
+  const runSearch = { items: debounce(searchItems, 200), npcs: debounce(searchNpcs, 200), console: renderCommands };
+  $("search").addEventListener("input", (e) => { if (SEARCH[tab]) { searchText[tab] = e.target.value; runSearch[tab](); } });
+
+  function setMenu(open) {
+    $("sidebar").classList.toggle("open", open);
+    $("menu-backdrop").hidden = !open;
+    $("menu-toggle").setAttribute("aria-expanded", String(open));
+  }
+  $("menu-toggle").onclick = () => setMenu(!$("sidebar").classList.contains("open"));
+  $("menu-backdrop").onclick = () => setMenu(false);
+
   const TAB_KEY = "test-panel:tab";
   function showTab(name) {
-    for (const b of $("tabs").children) b.classList.toggle("active", b.dataset.tab === name);
-    for (const s of document.querySelectorAll("main > section")) s.classList.toggle("active", s.id === `tab-${name}`);
+    tab = name;
+    for (const b of $("tabs").children) {
+      const on = b.dataset.tab === name;
+      b.setAttribute("aria-selected", String(on));
+      b.tabIndex = on ? 0 : -1;
+    }
+    for (const p of document.querySelectorAll("[data-panel]")) p.hidden = p.dataset.panel !== name;
+    $("page-title").textContent = TITLES[name];
+    $("search-wrap").hidden = !SEARCH[name];
+    if (SEARCH[name]) { $("search").placeholder = SEARCH[name]; $("search").value = searchText[name]; }
     try { localStorage.setItem(TAB_KEY, name); } catch {}
+    setMenu(false);
     if (name === "server") pollLogs();
+    if (SEARCH[name]) $("search").focus({ preventScroll: true });
   }
   for (const b of $("tabs").children) b.onclick = () => showTab(b.dataset.tab);
-  try { const saved = localStorage.getItem(TAB_KEY); if (saved && $(`tab-${saved}`)) showTab(saved); } catch {}
+  $("tabs").addEventListener("keydown", (e) => {
+    if (!["ArrowDown", "ArrowUp"].includes(e.key)) return;
+    const buttons = [...$("tabs").children];
+    const next = buttons[(buttons.findIndex((b) => b.dataset.tab === tab) + (e.key === "ArrowDown" ? 1 : buttons.length - 1)) % buttons.length];
+    showTab(next.dataset.tab); next.focus(); e.preventDefault();
+  });
+  try { const saved = localStorage.getItem(TAB_KEY); if (saved && TITLES[saved]) showTab(saved); } catch {}
 
   refreshState();
   setInterval(refreshState, 2000);
